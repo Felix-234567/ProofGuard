@@ -1,0 +1,312 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-dark);
+}
+
+.brandingSection {
+  display: flex;
+  flex: 1.2;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid var(--panel-border);
+  background-color: var(--bg-dark-accent);
+}
+
+@media (max-width: 1024px) {
+  .brandingSection {
+    display: none;
+  }
+}
+
+.brandingContent {
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  z-index: 2;
+}
+
+.logoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: var(--accent-green-dim);
+  border: 1px solid var(--accent-green-border);
+  color: var(--accent-green);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.logoIcon {
+  width: 15px;
+  height: 15px;
+}
+
+.brandingTitle {
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: white;
+}
+
+.gradientText {
+  color: var(--accent-green);
+}
+
+.brandingSubtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Visual Showcase Card */
+.showcaseCard {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  margin-top: 30px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  position: relative;
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardHeader {
+  height: 40px;
+  background: rgba(255, 255, 255, 0.01);
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 6px;
+}
+
+.cardDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--panel-border-light);
+}
+
+.cardTitle {
+  margin-left: 10px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cardBody {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mockWatermarkGrid {
+  position: absolute;
+  top: -50px;
+  left: -50px;
+  right: -50px;
+  bottom: -50px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30px;
+  transform: rotate(-25deg);
+  pointer-events: none;
+  opacity: 0.05;
+}
+
+.watermarkText {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: white;
+  text-align: center;
+}
+
+.lockStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 2;
+  background: #020305;
+  border: 1px solid var(--panel-border-light);
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.lockIcon {
+  width: 22px;
+  height: 22px;
+  color: var(--accent-green);
+  animation: pulse 2.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px var(--accent-green)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(0, 255, 102, 0.4)); }
+}
+
+.lockStatus span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Form Section */
+.formSection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.formCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+}
+
+@media (max-width: 480px) {
+  .formCard {
+    padding: 24px 16px;
+    border: none;
+    background: transparent;
+  }
+}
+
+.formHeader {
+  margin-bottom: 30px;
+}
+
+.formHeader h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.formHeader p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.inputWrapper input {
+  width: 100%;
+  padding-left: 42px;
+}
+
+.submitBtn {
+  width: 100%;
+  margin-top: 10px;
+  height: 46px;
+}
+
+.errorMessage {
+  background: var(--accent-red-dim);
+  border: 1px solid rgba(255, 59, 48, 0.2);
+  color: #ff8e8a;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+  font-weight: 600;
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.successMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 30px 0;
+  text-align: center;
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.successIcon {
+  width: 40px;
+  height: 40px;
+  animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.formFooter {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.switchBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-family: var(--font-outfit);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.switchBtn:hover {
+  color: var(--text-primary);
+}

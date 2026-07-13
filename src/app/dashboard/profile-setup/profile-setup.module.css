@@ -1,0 +1,180 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-dark);
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 100vh;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  color: var(--accent-green);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Header */
+.header {
+  height: 74px;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: var(--bg-dark-accent);
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0 16px;
+    height: 64px;
+  }
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.logoIcon {
+  color: var(--accent-green);
+  width: 22px;
+  height: 22px;
+}
+
+/* Main Layout Centering Form */
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 20px 10px;
+  }
+}
+
+.card {
+  width: 100%;
+  max-width: 500px;
+  padding: 36px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 24px 16px;
+    border: none;
+    background: transparent;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.iconBg {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-green-dim);
+  border: 1px solid var(--accent-green-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.headerIcon {
+  color: var(--accent-green);
+}
+
+.cardHeader h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.cardHeader p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.formRow {
+  display: flex;
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .formRow {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.inputWrapper input {
+  width: 100%;
+  padding-left: 42px;
+}
+
+.errorMessage {
+  background: var(--accent-red-dim);
+  border: 1px solid rgba(255, 59, 48, 0.15);
+  color: var(--accent-red);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+.secureNotice {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
