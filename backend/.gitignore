@@ -1,0 +1,15 @@
+# Dotnet specific ignores
+[Bb]in/
+[Oo]bj/
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Local storage upload folders
+uploads/
+temp_test.pdf
+test_image_watermarked.jpg
+test_pdf_watermarked.pdf
