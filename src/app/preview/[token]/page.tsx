@@ -94,20 +94,14 @@ export default function ClientPreview() {
     }
   };
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5059';
+
   // Handle downloading the files
   const handleDownloadOriginal = async () => {
     if (!project || project.status !== 'Paid') return;
     setDownloading(true);
     try {
-      const originalBase64 = await apiService.downloadOriginal(token);
-      
-      // Create clean download link
-      const link = document.createElement('a');
-      link.href = originalBase64;
-      link.download = `ProofGuard_${project.title.replace(/\s+/g, '_')}_Original.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      window.open(`${API_BASE_URL}/api/public/projects/${token}/download-original`, '_blank');
     } catch (err) {
       alert('Failed to retrieve original file.');
     } finally {
@@ -119,7 +113,7 @@ export default function ClientPreview() {
   const handleDownloadPreview = () => {
     if (!project) return;
     const link = document.createElement('a');
-    link.href = project.preview_file_key || project.original_file_key;
+    link.href = `${API_BASE_URL}/api/public/projects/${token}/download-preview`;
     link.download = `ProofGuard_${project.title.replace(/\s+/g, '_')}_Watermarked_Preview.jpg`;
     document.body.appendChild(link);
     link.click();
@@ -193,7 +187,9 @@ export default function ClientPreview() {
             
             {/* The Watermarked preview */}
             <img 
-              src={project.status === 'Paid' ? project.original_file_key : (project.preview_file_key || project.original_file_key)} 
+              src={project.status === 'Paid' 
+                ? `${API_BASE_URL}/api/public/projects/${token}/download-original` 
+                : `${API_BASE_URL}/api/public/projects/${token}/download-preview`} 
               alt="Project Design Proof" 
               className={styles.proofImage}
               onContextMenu={(e) => e.preventDefault()}

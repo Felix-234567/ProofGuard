@@ -120,16 +120,12 @@ export default function Dashboard() {
     setProcessingFile(true);
 
     try {
-      // 1. Process and watermark the image client-side to simulate backend logic
-      const watermarked = await generateWatermarkedPreview(file);
-      
-      // 2. Submit to mock API service
+      // 2. Submit to C# backend (watermarking is processed server-side)
       await apiService.createProject({
         title,
         client_email: clientEmail,
         price: priceNum,
-        original_file_key: watermarked.original,
-        preview_file_key: watermarked.preview
+        file: file
       });
 
       // Reset form
