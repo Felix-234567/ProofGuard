@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: proofguard-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: ohio
+    branch: main
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: FIREBASE_PROJECT_ID
+        value: YOUR_FIREBASE_PROJECT_ID
+      - key: CLOUDFLARE_D1_ACCOUNT_ID
+        value: YOUR_CLOUDFLARE_ACCOUNT_ID
+      - key: CLOUDFLARE_D1_DATABASE_ID
+        value: YOUR_CLOUDFLARE_DATABASE_ID
+      - key: CLOUDFLARE_D1_API_TOKEN
+        value: YOUR_CLOUDFLARE_D1_API_TOKEN
+      - key: CLOUDFLARE_R2_ACCOUNT_ID
+        value: YOUR_CLOUDFLARE_ACCOUNT_ID
+      - key: CLOUDFLARE_R2_ACCESS_KEY_ID
+        value: YOUR_CLOUDFLARE_R2_ACCESS_KEY_ID
+      - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        value: YOUR_CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      - key: CLOUDFLARE_R2_BUCKET_NAME
+        value: YOUR_CLOUDFLARE_R2_BUCKET_NAME
+      - key: PAYSTACK_SECRET_KEY
+        value: YOUR_PAYSTACK_SECRET_KEY
+      - key: PAYSTACK_CALLBACK_URL
+        value: https://proofguard-api.onrender.com/api/payments/verify
+      - key: APP_BASE_URL
+        value: https://proofguard-api.onrender.com
+      - key: RESEND_API_KEY
+        value: YOUR_RESEND_API_KEY
+      - key: RESEND_FROM_EMAIL
+        value: YOUR_RESEND_FROM_EMAIL
+      - key: STORAGE_LOCAL_FOLDER
+        value: /tmp/uploads
