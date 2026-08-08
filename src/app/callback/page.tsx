@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiService } from '@/lib/apiService';
+import { Suspense } from 'react';
 import styles from './callback.module.css';
 
-export default function PaystackCallback() {
+function PaystackCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
@@ -100,5 +101,24 @@ export default function PaystackCallback() {
         )}
       </div>
     </div>
+  );
+}
+
+function CallbackLoading() {
+  return (
+    <div className={styles.container}>
+      <div className={`glass-panel ${styles.card}`}>
+        <Loader2 className={styles.spinner} size={40} />
+        <h2 className={styles.title}>Loading...</h2>
+      </div>
+    </div>
+  );
+}
+
+export default function PaystackCallback() {
+  return (
+    <Suspense fallback={<CallbackLoading />}>
+      <PaystackCallbackInner />
+    </Suspense>
   );
 }
