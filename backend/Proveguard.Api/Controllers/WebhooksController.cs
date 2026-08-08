@@ -46,6 +46,10 @@ public class WebhooksController : ControllerBase
 
         // 2. Verify Paystack HMAC-SHA512 signature
         var paystackSignature = Request.Headers["x-paystack-signature"].ToString();
+        if (string.IsNullOrEmpty(paystackSignature))
+        {
+            paystackSignature = Request.Headers["x-paystack-signature-sha512"].ToString();
+        }
         var secretKey = _configuration["Paystack:SecretKey"] ?? "";
 
         if (string.IsNullOrEmpty(paystackSignature) || !VerifySignature(requestBody, paystackSignature, secretKey))

@@ -31,8 +31,10 @@ export default function AnalyticsPage() {
           router.push('/');
           return;
         }
+
+        // Check profile_completed from localStorage (set by updateProfile after saving to D1)
         if (!user.profile_completed) {
-          router.push('/dashboard/profile-setup');
+          window.location.href = '/dashboard/profile-setup';
           return;
         }
         setDesigner(user);

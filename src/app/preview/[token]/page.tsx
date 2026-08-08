@@ -22,9 +22,6 @@ export default function ClientPreview() {
   
   // Payment Modal State
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvc, setCvc] = useState('');
   const [payError, setPayError] = useState('');
   const [payLoading, setPayLoading] = useState(false);
   const [paySuccess, setPaySuccess] = useState(false);
@@ -51,44 +48,21 @@ export default function ClientPreview() {
     initPage();
   }, [token]);
 
-  // Format Card Number (space every 4 digits)
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
-    setCardNumber(formatted.substring(0, 19));
-  };
-
-  // Format Expiry Date (MM/YY)
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    let formatted = value;
-    if (value.length > 2) {
-      formatted = `${value.substring(0, 2)}/${value.substring(2, 4)}`;
-    }
-    setExpiry(formatted.substring(0, 5));
-  };
-
-  // Submit simulated Stripe payment
+  // Redirect to Paystack checkout via backend
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPayError('');
-
-    if (!cardNumber || !expiry || !cvc) {
-      setPayError('Please enter all card credentials.');
-      return;
-    }
-
     setPayLoading(true);
+
     try {
-      // Call mock api
-      const updatedProj = await apiService.processPayment(token, { cardNumber, expiry, cvc });
+      const updatedProj = await apiService.processPayment(token);
       setProject(updatedProj);
       setPaySuccess(true);
       setTimeout(() => {
         setIsPayModalOpen(false);
       }, 1500);
     } catch (err: any) {
-      setPayError(err.message || 'Payment failed. Please verify credentials.');
+      setPayError(err.message || 'Payment failed. Please try again.');
     } finally {
       setPayLoading(false);
     }
@@ -101,7 +75,12 @@ export default function ClientPreview() {
     if (!project || project.status !== 'Paid') return;
     setDownloading(true);
     try {
-      window.open(`${API_BASE_URL}/api/public/projects/${token}/download-original`, '_blank');
+      const link = document.createElement('a');
+      link.href = `${API_BASE_URL}/api/public/projects/${token}/download-original`;
+      link.download = `ProofGuard_${project.title.replace(/\s+/g, '_')}_Original.${project.original_file_key.split('.').pop()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
       alert('Failed to retrieve original file.');
     } finally {
@@ -281,107 +260,68 @@ export default function ClientPreview() {
         </section>
       </main>
 
-      {/* Stripe Payment Modal */}
-      {isPayModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={`glass-panel ${styles.modal} animate-fade-in`}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalHeaderTitle}>
-                <CreditCard size={20} className={styles.modalCardIcon} />
-                <h3>Secure Delivery Payment</h3>
-              </div>
-              <button 
-                onClick={() => setIsPayModalOpen(false)} 
-                className={styles.modalCloseBtn}
-                disabled={payLoading || paySuccess}
-              >
-                Cancel
-              </button>
-            </div>
+       {/* Payment Modal */}
+       {isPayModalOpen && (
+         <div className={styles.modalOverlay}>
+           <div className={`glass-panel ${styles.modal} animate-fade-in`}>
+             <div className={styles.modalHeader}>
+               <div className={styles.modalHeaderTitle}>
+                 <CreditCard size={20} className={styles.modalCardIcon} />
+                 <h3>Secure Delivery Payment</h3>
+               </div>
+               <button 
+                 onClick={() => setIsPayModalOpen(false)} 
+                 className={styles.modalCloseBtn}
+                 disabled={payLoading || paySuccess}
+               >
+                 Cancel
+               </button>
+             </div>
 
-            {payError && <div className={styles.payError}>{payError}</div>}
+             {payError && <div className={styles.payError}>{payError}</div>}
 
-            {paySuccess ? (
-              <div className={styles.paySuccessMessage}>
-                <CheckCircle2 className={styles.paySuccessIcon} />
-                <h4>Payment Completed!</h4>
-                <p>Transfer authorized. Generating signed download access...</p>
-              </div>
-            ) : (
-              <form onSubmit={handlePaymentSubmit} className={styles.payForm}>
-                <div className={styles.modalInvoice}>
-                  <span>Deliverable:</span>
-                  <strong>{project.title}</strong>
-                  <span className={styles.modalPrice}>${project.price.toLocaleString()}</span>
-                </div>
+             {paySuccess ? (
+               <div className={styles.paySuccessMessage}>
+                 <CheckCircle2 className={styles.paySuccessIcon} />
+                 <h4>Payment Completed!</h4>
+                 <p>Redirecting to secure download access...</p>
+               </div>
+             ) : (
+               <form onSubmit={handlePaymentSubmit} className={styles.payForm}>
+                 <div className={styles.modalInvoice}>
+                   <span>Deliverable:</span>
+                   <strong>{project.title}</strong>
+                   <span className={styles.modalPrice}>${project.price.toLocaleString()}</span>
+                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" htmlFor="card-num">Card Number</label>
-                  <input
-                    id="card-num"
-                    type="text"
-                    placeholder="4242 4242 4242 4242"
-                    value={cardNumber}
-                    onChange={handleCardNumberChange}
-                    className="form-input"
-                    disabled={payLoading}
-                    required
-                  />
-                </div>
+                 <div className={styles.paystackInfo}>
+                   <Shield size={16} className={styles.paystackInfoIcon} />
+                   <span>You will be redirected to Paystack to complete your payment securely.</span>
+                 </div>
 
-                <div className={styles.formRow}>
-                  <div className="form-group" style={{ flex: 1.5 }}>
-                    <label className="form-label" htmlFor="card-exp">Expiry Date</label>
-                    <input
-                      id="card-exp"
-                      type="text"
-                      placeholder="MM/YY"
-                      value={expiry}
-                      onChange={handleExpiryChange}
-                      className="form-input"
-                      disabled={payLoading}
-                      required
-                    />
-                  </div>
+                 <button 
+                   type="submit" 
+                   className={`btn btn-primary ${styles.modalPayBtn}`}
+                   disabled={payLoading}
+                 >
+                   {payLoading ? (
+                     <>
+                       <Loader2 className={styles.spinner} size={18} />
+                       <span>Redirecting to Paystack...</span>
+                     </>
+                   ) : (
+                     <span>Pay ${project.price.toLocaleString()} with Paystack</span>
+                   )}
+                 </button>
 
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label" htmlFor="card-cvc">CVC</label>
-                    <input
-                      id="card-cvc"
-                      type="text"
-                      placeholder="123"
-                      value={cvc}
-                      onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').substring(0, 4))}
-                      className="form-input"
-                      disabled={payLoading}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  type="submit" 
-                  className={`btn btn-primary ${styles.modalPayBtn}`}
-                  disabled={payLoading}
-                >
-                  {payLoading ? (
-                    <>
-                      <Loader2 className={styles.spinner} size={18} />
-                      <span>Processing Stripe Capture...</span>
-                    </>
-                  ) : (
-                    <span>Authorize & Pay ${project.price.toLocaleString()}</span>
-                  )}
-                </button>
-
-                <p className={styles.stripeNotice}>
-                  Simulated gateway. Stripe TLS 1.3 / AES-256 bank-grade protocol simulated.
-                </p>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+                 <p className={styles.paystackNotice}>
+                   Your secure payment is processed by Paystack. We never see your card details.
+                 </p>
+               </form>
+             )}
+           </div>
+         </div>
+       )}
     </div>
   );
 }

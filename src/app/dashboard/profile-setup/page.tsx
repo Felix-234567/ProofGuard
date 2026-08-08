@@ -2,21 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Phone, CreditCard, User, Building, Loader2 } from 'lucide-react';
+import { Shield, Phone, Smartphone, Building, Loader2 } from 'lucide-react';
 import { apiService } from '@/lib/apiService';
 import styles from './profile-setup.module.css';
 
-const GH_BANKS = [
-  'MTN Mobile Money',
-  'Telecel Cash',
-  'AT Money',
-  'GCB Bank',
-  'Ecobank Ghana',
-  'Fidelity Bank Ghana',
-  'Stanbic Bank',
-  'Absa Bank Ghana',
-  'CalBank',
-  'Access Bank Ghana'
+const MOMO_PROVIDERS = [
+  { id: 'mtn', label: 'MTN Mobile Money' },
+  { id: 'telecel', label: 'Telecel Cash' },
+  { id: 'at', label: 'AT Money' },
 ];
 
 export default function ProfileSetup() {
@@ -28,8 +21,8 @@ export default function ProfileSetup() {
   // Form fields
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
-  const [bank, setBank] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
+  const [momoProvider, setMomoProvider] = useState('');
+  const [momoNumber, setMomoNumber] = useState('');
 
   useEffect(() => {
     async function checkSession() {
@@ -39,12 +32,45 @@ export default function ProfileSetup() {
           router.push('/');
           return;
         }
-        // If profile is already completed, go straight to dashboard
+
+        // Check if profile is already completed in the database
+        try {
+          const token = apiService.getToken();
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5059'}/api/designers/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (res.ok) {
+            const dbProfile = await res.json();
+            // If database says profile is completed, sync to localStorage and redirect
+            if (dbProfile.profile_completed) {
+              const merged = { ...user, ...dbProfile, profile_completed: true };
+              localStorage.setItem('pg_current_designer', JSON.stringify(merged));
+              router.push('/dashboard');
+              return;
+            }
+
+            // Pre-fill form with existing database values if any
+            if (dbProfile.business_name) setBusinessName(dbProfile.business_name);
+            if (dbProfile.phone) setPhone(dbProfile.phone);
+            if (dbProfile.momo_provider) setMomoProvider(dbProfile.momo_provider);
+            if (dbProfile.momo_number) setMomoNumber(dbProfile.momo_number);
+          } else {
+            // Designer doesn't exist in DB yet, use default business name
+            setBusinessName(user.name + ' Designs');
+          }
+        } catch (apiErr) {
+          console.warn('Could not fetch profile from API, using localStorage only', apiErr);
+          setBusinessName(user.name + ' Designs');
+        }
+
+        // If localStorage profile_completed is true but we got here, redirect anyway
         if (user.profile_completed) {
           router.push('/dashboard');
           return;
         }
-        setBusinessName(user.name + ' Designs');
       } catch (err) {
         console.error(err);
       } finally {
@@ -57,25 +83,38 @@ export default function ProfileSetup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (!businessName || !phone || !bank || !accountNumber) {
-      setError('Please fill in all settlement payout details.');
+
+    if (!businessName || !phone || !momoProvider || !momoNumber) {
+      setError('Please fill in all payout details.');
       return;
     }
 
     setSubmitting(true);
+
     try {
-      await apiService.updateProfile({
+      const updatedDesigner = await apiService.updateProfile({
         business_name: businessName,
         phone: phone,
-        payout_bank: bank,
-        account_number: accountNumber
+        momo_provider: momoProvider,
+        momo_number: momoNumber
       });
-      
-      router.push('/dashboard');
+
+      console.log('[ProfileSetup] Profile saved to database successfully:', updatedDesigner);
+
+      // Sync the full response to localStorage
+      if (typeof window !== 'undefined') {
+        const localDesigner = await apiService.getCurrentUser();
+        if (localDesigner) {
+          const merged = { ...localDesigner, ...updatedDesigner, profile_completed: true };
+          localStorage.setItem('pg_current_designer', JSON.stringify(merged));
+        }
+      }
+
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
     } catch (err: any) {
-      setError(err.message || 'Failed to save payout profile.');
-    } finally {
+      console.error('Profile save failed:', err);
+      setError(err.message || 'Failed to save profile. Please try again.');
       setSubmitting(false);
     }
   };
@@ -102,11 +141,11 @@ export default function ProfileSetup() {
         <div className={`glass-panel ${styles.card}`}>
           <div className={styles.cardHeader}>
             <div className={styles.iconBg}>
-              <CreditCard size={20} className={styles.headerIcon} />
+              <Smartphone size={20} className={styles.headerIcon} />
             </div>
-            <h2>Payout Profile Setup</h2>
+            <h2>Mobile Money Payout Setup</h2>
             <p>
-              ProofGuard uses **Paystack Subaccounts** to route client payments directly to your mobile money or bank wallet instantly. Add your details below to finish setup.
+              Set up your Mobile Money wallet to receive client payments directly. When a client pays, funds are sent straight to your MoMo number.
             </p>
           </div>
 
@@ -149,32 +188,32 @@ export default function ProfileSetup() {
 
             <div className={styles.formRow}>
               <div className="form-group" style={{ flex: 1.2 }}>
-                <label className="form-label" htmlFor="bank-select">Bank or Mobile Wallet</label>
+                <label className="form-label" htmlFor="momo-provider">Mobile Money Provider</label>
                 <select
-                  id="bank-select"
-                  value={bank}
-                  onChange={(e) => setBank(e.target.value)}
+                  id="momo-provider"
+                  value={momoProvider}
+                  onChange={(e) => setMomoProvider(e.target.value)}
                   className="form-input"
                   disabled={submitting}
                   required
                 >
-                  <option value="">Select payout network</option>
-                  {GH_BANKS.map((b) => (
-                    <option key={b} value={b}>{b}</option>
+                  <option value="">Select provider</option>
+                  {MOMO_PROVIDERS.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
                 </select>
               </div>
 
               <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label" htmlFor="acc-num">Account / Wallet Number</label>
+                <label className="form-label" htmlFor="momo-number">Mobile Money Number</label>
                 <div className={styles.inputWrapper}>
-                  <CreditCard className={styles.inputIcon} />
+                  <Smartphone className={styles.inputIcon} />
                   <input
-                    id="acc-num"
-                    type="text"
+                    id="momo-number"
+                    type="tel"
                     placeholder="e.g. 0541234567"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                    value={momoNumber}
+                    onChange={(e) => setMomoNumber(e.target.value.replace(/\D/g, ''))}
                     className="form-input"
                     disabled={submitting}
                     required
@@ -187,16 +226,16 @@ export default function ProfileSetup() {
               {submitting ? (
                 <>
                   <Loader2 className={styles.spinner} size={18} />
-                  <span>Configuring subaccount...</span>
+                  <span>Saving...</span>
                 </>
               ) : (
-                <span>Complete Payout Setup</span>
+                <span>Complete Setup</span>
               )}
             </button>
           </form>
 
           <p className={styles.secureNotice}>
-            Payout routing is encrypted. Settlement takes place automatically via Paystack (Ghana Payout Services).
+            Your MoMo number is stored securely. Payments from clients will be sent directly to this number.
           </p>
         </div>
       </main>

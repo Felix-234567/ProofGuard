@@ -52,8 +52,11 @@ export default function Dashboard() {
         router.push('/');
         return;
       }
+
+      // Check profile_completed status (from localStorage, updated by updateProfile)
       if (!user.profile_completed) {
-        router.push('/dashboard/profile-setup');
+        // Hard redirect to guarantee fresh component lifecycle
+        window.location.href = '/dashboard/profile-setup';
         return;
       }
       setDesigner(user);
@@ -331,9 +334,9 @@ export default function Dashboard() {
                   <div key={p.id} className={`glass-panel glass-panel-hover ${styles.projectCard}`}>
                     {/* Visual Thumbnail Preview */}
                     <div className={styles.cardThumbnailContainer}>
-                      {p.preview_file_key || p.original_file_key ? (
+                      {p.public_link_token ? (
                         <img 
-                          src={p.preview_file_key || p.original_file_key} 
+                          src={apiService.getPreviewUrl(p.public_link_token)} 
                           alt={p.title} 
                           className={styles.cardThumbnail} 
                           onContextMenu={(e) => e.preventDefault()}

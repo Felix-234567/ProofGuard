@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Proveguard.Api.Core.Interfaces;
 using Proveguard.Api.Core.Models;
 
@@ -20,12 +21,16 @@ public class ProjectsController : ControllerBase
     private readonly IDbService _dbService;
     private readonly IStorageService _storageService;
     private readonly IWatermarkService _watermarkService;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
 
-    public ProjectsController(IDbService dbService, IStorageService storageService, IWatermarkService watermarkService)
+    public ProjectsController(IDbService dbService, IStorageService storageService, IWatermarkService watermarkService, IEmailService emailService, IConfiguration configuration)
     {
         _dbService = dbService;
         _storageService = storageService;
         _watermarkService = watermarkService;
+        _emailService = emailService;
+        _configuration = configuration;
     }
 
     private string GetDesignerId()
@@ -140,10 +145,21 @@ public class ProjectsController : ControllerBase
             };
 
             await _dbService.ExecuteAsync(
-                @"INSERT INTO Projects (id, designer_id, title, client_email, price, status, original_file_key, preview_file_key, public_link_token, created_at) 
+                @"INSERT INTO Projects (id, designer_id, title, client_email, price, status, original_file_key, preview_file_key, public_link_token, created_at)
                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                project.Id, project.DesignerId, project.Title, project.ClientEmail, project.Price, project.Status, 
+                project.Id, project.DesignerId, project.Title, project.ClientEmail, project.Price, project.Status,
                 project.OriginalFileKey, project.PreviewFileKey, project.PublicLinkToken, project.CreatedAt);
+
+            // Send email notification to client
+            var baseUrl = _configuration["App:BaseUrl"] ?? "http://localhost:5059";
+            var previewUrl = $"{baseUrl.TrimEnd('/')}/preview/{project.PublicLinkToken}";
+
+            // Fire and forget - don't block response on email delivery
+            _ = _emailService.SendProjectNotificationAsync(
+                project.ClientEmail,
+                project.Title,
+                previewUrl,
+                project.Price);
 
             return CreatedAtAction(nameof(GetProjectById), new { id = projectId }, project);
         }

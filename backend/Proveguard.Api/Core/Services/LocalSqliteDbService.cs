@@ -14,55 +14,105 @@ public class LocalSqliteDbService : IDbService
 {
     private readonly string _connectionString;
     private readonly ILogger<LocalSqliteDbService> _logger;
+    private readonly string? _schemaSql;
 
     public LocalSqliteDbService(IConfiguration configuration, ILogger<LocalSqliteDbService> logger)
     {
         _logger = logger;
         _connectionString = configuration.GetConnectionString("DefaultConnection") ?? "Data Source=proveguard.db";
-        InitializeDatabase();
-    }
-
-    private void InitializeDatabase()
-    {
-        try
+        _schemaSql = LoadSchemaSql();
+        
+        // Ensure tables exist on startup
+        if (_schemaSql != null)
         {
-            var dbPath = "proveguard.db";
-            // Check if connection string specifies a path
-            var builder = new SqliteConnectionStringBuilder(_connectionString);
-            if (!string.IsNullOrEmpty(builder.DataSource))
-            {
-                dbPath = builder.DataSource;
-            }
-
-            _logger.LogInformation("Initializing local SQLite database at {Path}...", dbPath);
-
             using var connection = new SqliteConnection(_connectionString);
             connection.Open();
-
-            // Check if schema file exists in the application directory
-            var schemaPath = Path.Combine(AppContext.BaseDirectory, "schema.sql");
-            if (!File.Exists(schemaPath))
-            {
-                // Try parent directories in development
-                schemaPath = Path.Combine(Directory.GetCurrentDirectory(), "schema.sql");
-            }
-
-            if (File.Exists(schemaPath))
-            {
-                _logger.LogInformation("Applying SQL schema from {SchemaPath}...", schemaPath);
-                var schemaSql = File.ReadAllText(schemaPath);
-                using var command = new SqliteCommand(schemaSql, connection);
-                command.ExecuteNonQuery();
-            }
-            else
-            {
-                _logger.LogWarning("schema.sql not found at {SchemaPath}. Skipping automatic migration.", schemaPath);
-            }
+            ApplySchema(connection);
         }
-        catch (Exception ex)
+    }
+
+    /// <summary>
+    /// Locate and load the schema.sql file. Returns null if not found.
+    /// </summary>
+    private string? LoadSchemaSql()
+    {
+        // Check output directory first (for published/deployed builds)
+        var schemaPath = Path.Combine(AppContext.BaseDirectory, "schema.sql");
+        if (File.Exists(schemaPath))
         {
-            _logger.LogError(ex, "Failed to initialize SQLite database.");
+            _logger.LogInformation("Found schema at {Path}", schemaPath);
+            return File.ReadAllText(schemaPath);
         }
+
+        // Fallback: project root (for development)
+        schemaPath = Path.Combine(Directory.GetCurrentDirectory(), "schema.sql");
+        if (File.Exists(schemaPath))
+        {
+            _logger.LogInformation("Found schema at {Path}", schemaPath);
+            return File.ReadAllText(schemaPath);
+        }
+
+        _logger.LogWarning("schema.sql not found — tables MUST already exist.");
+        return null;
+    }
+
+    /// <summary>
+    /// Apply idempotent CREATE TABLE IF NOT EXISTS statements to ensure schema exists.
+    /// Safe to call on every connection — no-op if tables already exist.
+    /// </summary>
+    private void ApplySchema(SqliteConnection connection)
+    {
+        if (_schemaSql == null) return;
+        using var command = new SqliteCommand(_schemaSql, connection);
+        command.ExecuteNonQuery();
+        MigrateSchema(connection);
+    }
+
+    /// <summary>
+    /// Safely add new columns that may not exist in older databases.
+    /// Each ALTER TABLE is wrapped in try/catch — if the column already exists
+    /// SQLite throws, and we silently skip.
+    /// </summary>
+    private void MigrateSchema(SqliteConnection connection)
+    {
+        var migrations = new[]
+        {
+            "ALTER TABLE Designers ADD COLUMN phone TEXT DEFAULT ''",
+            "ALTER TABLE Designers ADD COLUMN momo_provider TEXT DEFAULT ''",
+            "ALTER TABLE Designers ADD COLUMN momo_number TEXT DEFAULT ''",
+            "ALTER TABLE Designers ADD COLUMN business_name TEXT DEFAULT ''",
+            "ALTER TABLE Designers ADD COLUMN profile_completed INTEGER NOT NULL DEFAULT 0"
+        };
+
+        foreach (var sql in migrations)
+        {
+            try
+            {
+                using var cmd = new SqliteCommand(sql, connection);
+                cmd.ExecuteNonQuery();
+                _logger.LogInformation("Applied column migration: {Sql}", sql);
+            }
+            catch (Exception ex)
+            {
+                // Column likely already exists — safe to ignore
+                _logger.LogDebug("Migration skipped (column may already exist): {Sql} — {Message}", sql, ex.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensure tables exist and run pending migrations before any query.
+    /// Must be called after opening a connection.
+    /// Both the schema and migration calls are idempotent — safe to run every time.
+    /// </summary>
+    private async Task EnsureSchemaAsync(SqliteConnection connection)
+    {
+        if (_schemaSql == null) return;
+        using var command = new SqliteCommand(_schemaSql, connection);
+        await command.ExecuteNonQueryAsync();
+        // Run migrations every time — ALTER TABLE ADD COLUMN is wrapped in try/catch
+        // and is a no-op if the column already exists.
+        MigrateSchema(connection);
     }
 
     public async Task<IEnumerable<T>> QueryAsync<T>(string sql, params object[] parameters)
@@ -70,14 +120,16 @@ public class LocalSqliteDbService : IDbService
         var list = new List<T>();
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
+        await EnsureSchemaAsync(connection);
 
         using var command = new SqliteCommand(sql, connection);
         BindParameters(command, parameters);
 
         using var reader = await command.ExecuteReaderAsync();
+        bool isScalar = IsScalarType<T>();
         while (await reader.ReadAsync())
         {
-            list.Add(MapRow<T>(reader));
+            list.Add(isScalar ? ReadScalar<T>(reader) : MapRow<T>(reader));
         }
 
         return list;
@@ -87,6 +139,7 @@ public class LocalSqliteDbService : IDbService
     {
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
+        await EnsureSchemaAsync(connection);
 
         using var command = new SqliteCommand(sql, connection);
         BindParameters(command, parameters);
@@ -94,16 +147,42 @@ public class LocalSqliteDbService : IDbService
         using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
+            if (IsScalarType<T>())
+            {
+                return ReadScalar<T>(reader);
+            }
             return MapRow<T>(reader);
         }
 
         return default;
     }
 
+    private static bool IsScalarType<T>()
+    {
+        var type = typeof(T);
+        return type.IsPrimitive
+            || type == typeof(string)
+            || type == typeof(decimal)
+            || type == typeof(DateTime)
+            || type == typeof(Guid)
+            || type == typeof(byte[]);
+    }
+
+    private static T ReadScalar<T>(SqliteDataReader reader)
+    {
+        var val = reader.GetValue(0);
+        if (val == DBNull.Value)
+        {
+            return default!;
+        }
+        return (T)Convert.ChangeType(val, typeof(T));
+    }
+
     public async Task<int> ExecuteAsync(string sql, params object[] parameters)
     {
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
+        await EnsureSchemaAsync(connection);
 
         using var command = new SqliteCommand(sql, connection);
         BindParameters(command, parameters);

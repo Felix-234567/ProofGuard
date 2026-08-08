@@ -127,7 +127,8 @@ public class PublicProjectsController : ControllerBase
         }
 
         var paymentId = Guid.NewGuid().ToString();
-        var callbackUrl = _configuration["Paystack:CallbackUrl"] ?? $"https://localhost:3000/project/{token}";
+        var callbackBaseUrl = _configuration["Paystack:CallbackUrl"] ?? "http://localhost:3000/callback";
+        var callbackUrl = $"{callbackBaseUrl}?token={token}";
 
         // Paystack expects amount in kobo (cents)
         var amountInKobo = Convert.ToInt32(project.Price * 100);
@@ -163,6 +164,13 @@ public class PublicProjectsController : ControllerBase
             Reference = paymentId
         };
 
+        // Create pending payment record BEFORE calling Paystack to prevent
+        // orphaned payments (customer pays but we have no DB record)
+        await _dbService.ExecuteAsync(
+            @"INSERT INTO Payments (id, project_id, amount, payment_provider_ref, status, created_at) 
+              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            paymentId, project.Id, project.Price, paymentId, "Pending", DateTime.UtcNow);
+
         try
         {
             _logger.LogInformation("Initializing Paystack payment of {Amount} kobo for project {ProjectId}", amountInKobo, project.Id);
@@ -172,6 +180,10 @@ public class PublicProjectsController : ControllerBase
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Paystack initialization failed: {ErrorContent}", errorContent);
+
+                await _dbService.ExecuteAsync(
+                    "UPDATE Payments SET status = 'Failed' WHERE id = ?1", paymentId);
+
                 return StatusCode(StatusCodes.Status502BadGateway, "Failed to initialize payment gateway.");
             }
 
@@ -179,14 +191,11 @@ public class PublicProjectsController : ControllerBase
 
             if (paystackResponse == null || !paystackResponse.Status)
             {
+                await _dbService.ExecuteAsync(
+                    "UPDATE Payments SET status = 'Failed' WHERE id = ?1", paymentId);
+
                 return StatusCode(StatusCodes.Status502BadGateway, "Invalid response from payment gateway.");
             }
-
-            // Create pending payment record
-            await _dbService.ExecuteAsync(
-                @"INSERT INTO Payments (id, project_id, amount, payment_provider_ref, status, created_at) 
-                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                paymentId, project.Id, project.Price, paystackResponse.Data.Reference, "Pending", DateTime.UtcNow);
 
             return Ok(new
             {
@@ -198,7 +207,84 @@ public class PublicProjectsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error initiating Paystack payment for project {ProjectId}", project.Id);
+
+            // Clean up the pending payment record on failure
+            await _dbService.ExecuteAsync(
+                "UPDATE Payments SET status = 'Failed' WHERE id = ?1", paymentId);
+
             return StatusCode(StatusCodes.Status500InternalServerError, $"Error initiating payment: {ex.Message}");
+        }
+    }
+
+    [HttpGet("{token}/verify-payment")]
+    public async Task<IActionResult> VerifyPayment(string token)
+    {
+        var project = await _dbService.QuerySingleOrDefaultAsync<Project>(
+            "SELECT * FROM Projects WHERE public_link_token = ?1", token);
+
+        if (project == null)
+        {
+            return NotFound("Project not found.");
+        }
+
+        // If already paid, no need to re-verify
+        if (project.Status == "Paid")
+        {
+            return Ok(new { status = "Paid", verified = true });
+        }
+
+        // Find the pending payment for this project
+        var payment = await _dbService.QuerySingleOrDefaultAsync<Payment>(
+            "SELECT * FROM Payments WHERE project_id = ?1 AND status = 'Pending'", project.Id);
+
+        if (payment == null)
+        {
+            return Ok(new { status = project.Status, verified = false });
+        }
+
+        var paystackSecret = _configuration["Paystack:SecretKey"] ?? "";
+        if (string.IsNullOrEmpty(paystackSecret) || paystackSecret == "sk_test_placeholder")
+        {
+            return Ok(new { status = project.Status, verified = false });
+        }
+
+        try
+        {
+            // Call Paystack's verify endpoint to check payment status directly
+            var verifyResponse = await _httpClient.GetAsync(
+                $"https://api.paystack.co/transaction/verify/{payment.PaymentProviderRef}");
+
+            if (!verifyResponse.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Paystack verification failed for reference {Ref}: {StatusCode}",
+                    payment.PaymentProviderRef, verifyResponse.StatusCode);
+                return Ok(new { status = project.Status, verified = false });
+            }
+
+            var verifyResult = await verifyResponse.Content.ReadFromJsonAsync<PaystackVerifyResponse>();
+
+            if (verifyResult?.Data?.Status == "success")
+            {
+                // Payment confirmed — update records
+                await _dbService.ExecuteAsync(
+                    "UPDATE Payments SET status = 'Completed' WHERE id = ?1", payment.Id);
+
+                await _dbService.ExecuteAsync(
+                    "UPDATE Projects SET status = 'Paid', paid_at = ?1 WHERE id = ?2",
+                    DateTime.UtcNow, project.Id);
+
+                _logger.LogInformation("Payment verified directly for payment {PaymentId}, project {ProjectId}",
+                    payment.Id, project.Id);
+
+                return Ok(new { status = "Paid", verified = true });
+            }
+
+            return Ok(new { status = project.Status, verified = false });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying payment for project {ProjectId}", project.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, "Payment verification error.");
         }
     }
 
@@ -220,13 +306,26 @@ public class PublicProjectsController : ControllerBase
 
         try
         {
-            // Generate signed time-limited URL valid for 24 hours
-            var signedUrl = await _storageService.GetPresignedUrlAsync(project.OriginalFileKey, TimeSpan.FromHours(24));
-            return Redirect(signedUrl);
+            var fileStream = await _storageService.DownloadFileAsync(project.OriginalFileKey);
+            var contentType = project.OriginalFileKey.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                ? "application/pdf"
+                : "image/jpeg";
+
+            var fileName = Path.GetFileName(project.OriginalFileKey);
+
+            // Set Content-Disposition to force download instead of inline display
+            Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
+
+            return File(fileStream, contentType, fileName);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound("Original file not found in storage.");
         }
         catch (Exception ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Error generating download link: {ex.Message}");
+            _logger.LogError(ex, "Error downloading original file for project {ProjectId}", project.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, $"Error downloading file: {ex.Message}");
         }
     }
 
@@ -286,5 +385,27 @@ public class PublicProjectsController : ControllerBase
 
         [JsonPropertyName("reference")]
         public string Reference { get; set; } = "";
+    }
+
+    // Paystack transaction verify response
+    private class PaystackVerifyResponse
+    {
+        [JsonPropertyName("status")]
+        public bool Status { get; set; }
+
+        [JsonPropertyName("message")]
+        public string Message { get; set; } = "";
+
+        [JsonPropertyName("data")]
+        public PaystackVerifyData Data { get; set; } = new();
+    }
+
+    private class PaystackVerifyData
+    {
+        [JsonPropertyName("reference")]
+        public string Reference { get; set; } = "";
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "";
     }
 }

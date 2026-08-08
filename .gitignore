@@ -39,3 +39,33 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# .NET
+bin/
+obj/
+*.user
+*.rsuser
+*.suo
+*.cache
+*.pdb
+*.dll
+*.exe
+*.app
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Build test artifacts
+build_test/
+build_test_*/
+**/build_test*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db

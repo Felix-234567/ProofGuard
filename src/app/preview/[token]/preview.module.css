@@ -489,6 +489,24 @@
   gap: 16px;
 }
 
+.paystackInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--accent-green-dim);
+  border: 1px solid var(--accent-green-border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 8px 0 12px;
+}
+
+.paystackInfoIcon {
+  color: var(--accent-green);
+  flex-shrink: 0;
+}
+
 .modalPayBtn {
   width: 100%;
   height: 46px;
@@ -502,7 +520,7 @@
   background: var(--accent-green-hover);
 }
 
-.stripeNotice {
+.paystackNotice {
   text-align: center;
   font-size: 0.68rem;
   color: var(--text-muted);

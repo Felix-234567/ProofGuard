@@ -4,6 +4,11 @@ CREATE TABLE IF NOT EXISTS Designers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     email TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    momo_provider TEXT DEFAULT '',
+    momo_number TEXT DEFAULT '',
+    business_name TEXT DEFAULT '',
+    profile_completed INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 

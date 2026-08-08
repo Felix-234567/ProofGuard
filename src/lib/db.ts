@@ -5,6 +5,8 @@ export interface Designer {
   email: string;
   created_at: string;
   phone?: string;
+  momo_provider?: string;
+  momo_number?: string;
   payout_bank?: string;
   account_number?: string;
   business_name?: string;
