@@ -38,4 +38,4 @@ services:
       - key: STORAGE_LOCAL_FOLDER
         value: /tmp/uploads
       - key: CORS_ALLOWED_ORIGINS
-        value: https://proofguard.vercel.app
+        value: https://proofguard.vercel.app,https://proofguard-bay.vercel.app

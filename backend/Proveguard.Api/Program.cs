@@ -64,7 +64,8 @@ if (File.Exists(envPath))
 var allowedOrigins = new List<string>
 {
     "http://localhost:3000",
-    "https://proofguard.vercel.app"
+    "https://proofguard.vercel.app",
+    "https://proofguard-bay.vercel.app"
 };
 
 var corsOriginsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
