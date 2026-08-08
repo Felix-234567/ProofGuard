@@ -2,6 +2,7 @@ services:
   - type: web
     name: proofguard-api
     runtime: docker
+    dockerfilePath: backend/Dockerfile
     plan: free
     region: ohio
     branch: main
