@@ -86,7 +86,7 @@ builder.Services.AddCors(options =>
 });
 
 // 2. Setup Firebase JWT Bearer Authentication
-var firebaseProjectId = builder.Configuration["Firebase:ProjectId"] ?? "YOUR_FIREBASE_PROJECT_ID";
+var firebaseProjectId = builder.Configuration["Firebase:ProjectId"] ?? "myfirstcsp";
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

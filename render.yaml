@@ -10,7 +10,7 @@ services:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: FIREBASE_PROJECT_ID
-        value: YOUR_FIREBASE_PROJECT_ID
+        value: myfirstcsp
       - key: CLOUDFLARE_D1_ACCOUNT_ID
         value: YOUR_CLOUDFLARE_ACCOUNT_ID
       - key: CLOUDFLARE_D1_DATABASE_ID
