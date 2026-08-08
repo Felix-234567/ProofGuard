@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   // We only explicitly set non-Firebase vars here to avoid overriding
   // the auto-exposed values from .env with empty-string fallbacks.
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5059',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://proofguard.onrender.com',
   },
 };
 

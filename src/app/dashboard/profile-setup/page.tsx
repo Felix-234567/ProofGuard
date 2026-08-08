@@ -36,7 +36,7 @@ export default function ProfileSetup() {
         // Check if profile is already completed in the database
         try {
           const token = apiService.getToken();
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5059'}/api/designers/profile`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://proofguard.onrender.com'}/api/designers/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }

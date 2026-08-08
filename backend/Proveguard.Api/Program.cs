@@ -61,11 +61,23 @@ if (File.Exists(envPath))
 }
 
 // 1. Setup CORS
+var allowedOrigins = new List<string>
+{
+    "http://localhost:3000",
+    "https://proofguard.vercel.app"
+};
+
+var corsOriginsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+if (!string.IsNullOrEmpty(corsOriginsEnv))
+{
+    allowedOrigins.AddRange(corsOriginsEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000") // Next.js frontend local port
+        policy.WithOrigins(allowedOrigins.ToArray())
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

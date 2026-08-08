@@ -127,7 +127,7 @@ public class PublicProjectsController : ControllerBase
         }
 
         var paymentId = Guid.NewGuid().ToString();
-        var callbackBaseUrl = _configuration["Paystack:CallbackUrl"] ?? "http://localhost:3000/callback";
+        var callbackBaseUrl = _configuration["Paystack:CallbackUrl"] ?? "https://proofguard.onrender.com/api/payments/verify";
         var callbackUrl = $"{callbackBaseUrl}?token={token}";
 
         // Paystack expects amount in kobo (cents)

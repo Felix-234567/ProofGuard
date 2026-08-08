@@ -1,6 +1,6 @@
 import { Project, Designer } from './db';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5059';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://proofguard.onrender.com';
 
 function mapProjectToFrontend(p: any): Project {
   return {

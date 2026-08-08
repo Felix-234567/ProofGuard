@@ -56,9 +56,9 @@ public class LocalStorageService : IStorageService
 
     public Task<string> GetPresignedUrlAsync(string fileKey, TimeSpan expiry)
     {
-        // Construct local URL like http://localhost:5000/api/local-files/{fileKey}
+        // Construct local URL like https://proofguard.onrender.com/api/local-files/{fileKey}
         var request = _httpContextAccessor.HttpContext?.Request;
-        var schemeHost = request != null ? $"{request.Scheme}://{request.Host}" : "http://localhost:5000";
+        var schemeHost = request != null ? $"{request.Scheme}://{request.Host}" : "https://proofguard.onrender.com";
         
         var baseAddress = string.IsNullOrEmpty(_baseUrl) ? schemeHost : _baseUrl;
         var localUrl = $"{baseAddress.TrimEnd('/')}/api/local-files/{fileKey}";

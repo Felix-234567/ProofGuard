@@ -151,7 +151,7 @@ public class ProjectsController : ControllerBase
                 project.OriginalFileKey, project.PreviewFileKey, project.PublicLinkToken, project.CreatedAt);
 
             // Send email notification to client
-            var baseUrl = _configuration["App:BaseUrl"] ?? "http://localhost:5059";
+            var baseUrl = _configuration["App:BaseUrl"] ?? "https://proofguard.onrender.com";
             var previewUrl = $"{baseUrl.TrimEnd('/')}/preview/{project.PublicLinkToken}";
 
             // Fire and forget - don't block response on email delivery

@@ -68,7 +68,7 @@ export default function ClientPreview() {
     }
   };
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5059';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://proofguard.onrender.com';
 
   // Handle downloading the files
   const handleDownloadOriginal = async () => {

@@ -37,3 +37,5 @@ services:
         value: YOUR_RESEND_FROM_EMAIL
       - key: STORAGE_LOCAL_FOLDER
         value: /tmp/uploads
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://proofguard.vercel.app
