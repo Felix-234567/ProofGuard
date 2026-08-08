@@ -11,6 +11,31 @@ namespace Proveguard.Api.Core.Services;
 
 public class WatermarkService : IWatermarkService
 {
+    private static SKTypeface ResolveSkiaTypeface()
+    {
+        return SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold)
+            ?? SKTypeface.FromFamilyName("DejaVu Sans", SKFontStyle.Bold)
+            ?? SKTypeface.FromFamilyName("Liberation Sans", SKFontStyle.Bold)
+            ?? SKTypeface.Default;
+    }
+
+    private static XFont ResolvePdfFont()
+    {
+        foreach (var family in new[] { "Arial", "DejaVu Sans", "Liberation Sans", "sans-serif" })
+        {
+            try
+            {
+                return new XFont(family, 36, XFontStyleEx.Bold);
+            }
+            catch
+            {
+                // Try next fallback
+            }
+        }
+
+        return new XFont("sans-serif", 36, XFontStyleEx.Bold);
+    }
+
     public Task<byte[]> WatermarkImageAsync(Stream originalImageStream, string watermarkText)
     {
         // 1. Decode original image
@@ -35,18 +60,24 @@ public class WatermarkService : IWatermarkService
 
         // 3. Create drawing canvas
         using var surface = SKSurface.Create(new SKImageInfo(targetWidth, targetHeight));
+        if (surface == null)
+        {
+            throw new InvalidOperationException("Failed to create Skia drawing surface.");
+        }
+
         var canvas = surface.Canvas;
 
         // Draw background image
         canvas.DrawBitmap(resizedBitmap ?? originalBitmap, 0, 0);
 
         // 4. Overlay repeating diagonal text watermark
+        var typeface = ResolveSkiaTypeface();
         using var paint = new SKPaint
         {
             Color = new SKColor(128, 128, 128, 60), // Semi-transparent grey
             TextSize = 36,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold)
+            Typeface = typeface
         };
 
         canvas.Save();
@@ -91,12 +122,13 @@ public class WatermarkService : IWatermarkService
 
         using var document = PdfReader.Open(ms, PdfDocumentOpenMode.Modify);
         
+        var font = ResolvePdfFont();
+        
         foreach (PdfPage page in document.Pages)
         {
             // Get Overpage graphics context (so watermark is on top of content)
             using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
-            var font = new XFont("Arial", 36, XFontStyleEx.Bold);
             var brush = new XSolidBrush(XColor.FromArgb(45, 128, 128, 128)); // Semi-transparent grey
 
             double width = page.Width.Point;
