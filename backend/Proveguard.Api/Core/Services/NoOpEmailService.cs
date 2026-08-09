@@ -12,7 +12,7 @@ public class NoOpEmailService : IEmailService
         Console.WriteLine($"  To: {clientEmail}");
         Console.WriteLine($"  Project: {projectTitle}");
         Console.WriteLine($"  Preview: {previewUrl}");
-        Console.WriteLine($"  Price: ${price:F2}");
+        Console.WriteLine($"  Price: ₵{price:F2}");
         return Task.CompletedTask;
     }
 }

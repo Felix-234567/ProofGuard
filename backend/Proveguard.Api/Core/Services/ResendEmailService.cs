@@ -164,7 +164,7 @@ public class ResendEmailService : IEmailService
 
         <div class=""project-info"">
             <div class=""project-title"">{projectTitle}</div>
-            <div class=""price"">Release Price: ${price:F2}</div>
+            <div class=""price"">Release Price: ₵{price:F2}</div>
         </div>
 
         <center>

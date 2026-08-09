@@ -120,14 +120,14 @@ export default function AnalyticsPage() {
           <div className={`glass-panel ${styles.summaryCard}`}>
             <div className={styles.summaryLabel}>Average Deal Size</div>
             <div className={styles.summaryValue}>
-              ${stats.totalPaid > 0 ? Math.round(stats.totalEarnings / stats.totalPaid).toLocaleString() : '0'}
+              ₵{stats.totalPaid > 0 ? Math.round(stats.totalEarnings / stats.totalPaid).toLocaleString() : '0'}
             </div>
             <div className={styles.summaryChange}>Per paid project delivery</div>
           </div>
 
           <div className={`glass-panel ${styles.summaryCard}`}>
             <div className={styles.summaryLabel}>Outstanding Revenue</div>
-            <div className={styles.summaryValue}>$4,150</div>
+            <div className={styles.summaryValue}>₵4,150</div>
             <div className={styles.summaryChange}>Locked in active previews</div>
           </div>
 
@@ -216,7 +216,7 @@ export default function AnalyticsPage() {
                 <h3>Revenue Insights (Last 6 Months)</h3>
                 <p>Monthly distribution of unlocked client files</p>
               </div>
-              <span className={styles.chartPrice}>Total: ${stats.totalEarnings + 13350}</span>
+              <span className={styles.chartPrice}>Total: ₵{stats.totalEarnings + 13350}</span>
             </div>
             <div className={styles.chartBody}>
               {/* Custom SVG Bar Chart */}
@@ -227,9 +227,9 @@ export default function AnalyticsPage() {
                 <line x1="40" y1="170" x2="480" y2="170" stroke="rgba(255,255,255,0.06)" />
 
                 {/* Y Axis Labels */}
-                <text x="15" y="34" className={styles.chartText}>$6k</text>
-                <text x="15" y="84" className={styles.chartText}>$4k</text>
-                <text x="15" y="134" className={styles.chartText}>$2k</text>
+                <text x="15" y="34" className={styles.chartText}>₵6k</text>
+                <text x="15" y="84" className={styles.chartText}>₵4k</text>
+                <text x="15" y="134" className={styles.chartText}>₵2k</text>
                 <text x="15" y="174" className={styles.chartText}>0</text>
 
                 {/* Bars */}

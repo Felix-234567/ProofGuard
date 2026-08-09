@@ -185,7 +185,7 @@ export default function ClientPreview() {
               <div className={styles.checkoutBox}>
                 <div className={styles.priceRow}>
                   <span>Lock-Release Price:</span>
-                  <span className={styles.priceVal}>${project.price.toLocaleString()}</span>
+                  <span className={styles.priceVal}>₵{project.price.toLocaleString()}</span>
                 </div>
                 
                 <p className={styles.priceSub}>
@@ -272,7 +272,7 @@ export default function ClientPreview() {
                 <div className={styles.modalInvoice}>
                   <span>Deliverable:</span>
                   <strong>{project.title}</strong>
-                  <span className={styles.modalPrice}>${project.price.toLocaleString()}</span>
+                   <span className={styles.modalPrice}>₵{project.price.toLocaleString()}</span>
                 </div>
 
                 <div className={styles.paystackInfo}>
@@ -291,7 +291,7 @@ export default function ClientPreview() {
                       <span>Redirecting to Paystack...</span>
                     </>
                   ) : (
-                    <span>Pay ${project.price.toLocaleString()} with Paystack</span>
+                      <span>Pay ₵{project.price.toLocaleString()} with Paystack</span>
                   )}
                 </button>
 

@@ -238,7 +238,7 @@ export default function Dashboard() {
                 <DollarSign size={20} />
               </div>
             </div>
-            <span className={styles.metricVal}>${stats.totalEarnings.toLocaleString()}</span>
+            <span className={styles.metricVal}>₵{stats.totalEarnings.toLocaleString()}</span>
             <p className={styles.metricSub}>Unlocked upon file delivery</p>
           </div>
 
@@ -352,7 +352,7 @@ export default function Dashboard() {
                     <div className={styles.cardContent}>
                       <div className={styles.cardHeaderArea}>
                         <h3 className={styles.cardTitle}>{p.title}</h3>
-                        <span className={styles.cardPrice}>${p.price.toLocaleString()}</span>
+                        <span className={styles.cardPrice}>₵{p.price.toLocaleString()}</span>
                       </div>
                       
                       <div className={styles.cardInfoGrid}>
@@ -457,7 +457,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label" htmlFor="proj-price">Price (USD)</label>
+                  <label className="form-label" htmlFor="proj-price">Price (GHS)</label>
                   <input
                     id="proj-price"
                     type="number"
