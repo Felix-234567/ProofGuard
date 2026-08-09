@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS Payments (
     payment_provider_ref TEXT,
     status TEXT NOT NULL, -- 'Pending', 'Completed', 'Failed'
     created_at TEXT NOT NULL,
-    FOREIGN KEY (project_id) REFERENCES Projects(id)
+    FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE CASCADE
 );
 
 -- Indexing for performance

@@ -214,6 +214,15 @@ public class ProjectsController : ControllerBase
 
         try
         {
+            await _dbService.ExecuteAsync("DELETE FROM Payments WHERE project_id = ?1", id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ProofGuard] Failed to delete payments for project {id}: {ex.Message}");
+        }
+
+        try
+        {
             await _storageService.DeleteFileAsync(project.OriginalFileKey);
         }
         catch (Exception ex)
@@ -230,7 +239,15 @@ public class ProjectsController : ControllerBase
             Console.WriteLine($"[ProofGuard] Failed to delete preview file {project.PreviewFileKey}: {ex.Message}");
         }
 
-        await _dbService.ExecuteAsync("DELETE FROM Projects WHERE id = ?1 AND designer_id = ?2", id, designerId);
+        try
+        {
+            await _dbService.ExecuteAsync("DELETE FROM Projects WHERE id = ?1 AND designer_id = ?2", id, designerId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ProofGuard] Failed to delete project {id}: {ex.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError, $"Failed to delete project: {ex.Message}");
+        }
 
         return NoContent();
     }

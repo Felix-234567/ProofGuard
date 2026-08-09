@@ -97,8 +97,8 @@ export default function Dashboard() {
       try {
         await apiService.deleteProject(id);
         await loadData();
-      } catch (err) {
-        alert('Failed to delete project');
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete project');
       }
     }
   };
