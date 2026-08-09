@@ -6,7 +6,11 @@ RUN dotnet restore Proveguard.Api/Proveguard.Api.csproj
 
 COPY . .
 WORKDIR /src/Proveguard.Api
-RUN dotnet publish Proveguard.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+# -r linux-x64 is required so RID-specific native assets (libSkiaSharp.so) are
+# copied into the publish output; a portable publish omits them and SkiaSharp
+# watermarking fails at runtime. --self-contained false keeps the lean
+# aspnet runtime image.
+RUN dotnet publish Proveguard.Api.csproj -c Release -r linux-x64 --self-contained false -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

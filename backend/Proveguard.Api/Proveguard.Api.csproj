@@ -15,6 +15,12 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Resend" Version="0.8.0" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <!-- SkiaSharp 2.88.x does NOT ship Linux native assets via the main package -->
+    <!-- (the nuspec only depends on Windows/macOS/iOS/Android natives). Without this -->
+    <!-- package, libSkiaSharp.so is missing from Linux/Docker publish output and -->
+    <!-- watermarking fails with 'The type initializer for SKAbstractManagedStream -->
+    <!-- threw an exception'. Version must match the SkiaSharp package exactly. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
   </ItemGroup>
 
   <ItemGroup>
