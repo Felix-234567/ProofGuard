@@ -276,8 +276,22 @@ export const apiService = {
   },
 
   async deleteProject(id: string): Promise<void> {
-    // Delete is currently mocked since C# Web API does not expose DELETE route
-    return new Promise((resolve) => setTimeout(resolve, 200));
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('No auth token found. Please sign in again.');
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok) {
+      const errMsg = await res.text();
+      throw new Error(errMsg || 'Failed to delete project');
+    }
   },
 
   async getAnalytics() {

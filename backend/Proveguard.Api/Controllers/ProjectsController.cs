@@ -200,6 +200,41 @@ public class ProjectsController : ControllerBase
         return Ok(project);
     }
 
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProject(string id)
+    {
+        var designerId = GetDesignerId();
+        var project = await _dbService.QuerySingleOrDefaultAsync<Project>(
+            "SELECT * FROM Projects WHERE id = ?1 AND designer_id = ?2", id, designerId);
+
+        if (project == null)
+        {
+            return NotFound("Project not found.");
+        }
+
+        try
+        {
+            await _storageService.DeleteFileAsync(project.OriginalFileKey);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ProofGuard] Failed to delete original file {project.OriginalFileKey}: {ex.Message}");
+        }
+
+        try
+        {
+            await _storageService.DeleteFileAsync(project.PreviewFileKey);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ProofGuard] Failed to delete preview file {project.PreviewFileKey}: {ex.Message}");
+        }
+
+        await _dbService.ExecuteAsync("DELETE FROM Projects WHERE id = ?1 AND designer_id = ?2", id, designerId);
+
+        return NoContent();
+    }
+
     [HttpGet("analytics")]
     public async Task<IActionResult> GetAnalytics()
     {
