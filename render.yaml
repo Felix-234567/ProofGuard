@@ -41,9 +41,9 @@ services:
         value: YOUR_PAYSTACK_SECRET_KEY
         sync: false
       - key: PAYSTACK_CALLBACK_URL
-        value: https://proofguard-api.onrender.com/api/payments/verify
+        value: https://proofguard-bay.vercel.app/callback
       - key: APP_BASE_URL
-        value: https://proofguard-api.onrender.com
+        value: https://proofguard-bay.vercel.app
       - key: RESEND_API_KEY
         value: YOUR_RESEND_API_KEY
         sync: false

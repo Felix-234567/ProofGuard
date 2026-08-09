@@ -127,7 +127,9 @@ public class PublicProjectsController : ControllerBase
         }
 
         var paymentId = Guid.NewGuid().ToString();
-        var callbackBaseUrl = _configuration["Paystack:CallbackUrl"] ?? "https://proofguard.onrender.com/api/payments/verify";
+        // Paystack redirects the CLIENT's browser here after payment, so it must
+        // point at the frontend callback page (/callback?token=...), not the API.
+        var callbackBaseUrl = _configuration["Paystack:CallbackUrl"] ?? "https://proofguard-bay.vercel.app/callback";
         var callbackUrl = $"{callbackBaseUrl}?token={token}";
 
         // Paystack expects amount in kobo (cents)

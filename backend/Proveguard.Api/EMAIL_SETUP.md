@@ -35,23 +35,26 @@ RESEND_FROM_EMAIL=onboarding@resend.dev  # Change to your verified domain email
 The `backend/Proveguard.Api/appsettings.json` file already has the Resend configuration structure.
 For production deployment, update these values or use environment variables.
 
-### 5. Set the Base URL
+### 5. Set the Base URL (Frontend!)
 
-The emails include a preview link. Update the `App:BaseUrl` configuration:
-
-**Development (.env):**
-```env
-# The URL is read from appsettings.json by default (http://localhost:5059)
-```
+The emails include a preview button. `App:BaseUrl` must be the **frontend** URL (the
+Next.js app that serves `/preview/[token]`), NOT the API URL — the API has no `/preview` route.
 
 **Production (appsettings.json or environment variables):**
 ```json
 {
   "App": {
-    "BaseUrl": "https://yourdomain.com"
+    "BaseUrl": "https://proofguard-bay.vercel.app"
   }
 }
 ```
+
+Env var: `APP_BASE_URL=https://proofguard-bay.vercel.app`
+
+**Paystack callback:** `Paystack:CallbackUrl` (env `PAYSTACK_CALLBACK_URL`) must point to the
+frontend callback page too, e.g. `https://proofguard-bay.vercel.app/callback` — the backend
+appends `?token=...` automatically. (The frontend `/callback` page polls the API and redirects
+to the preview; there is no `/api/payments/verify` endpoint.)
 
 ### 6. Restart the Backend
 

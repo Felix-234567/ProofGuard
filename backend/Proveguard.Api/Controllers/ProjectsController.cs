@@ -151,7 +151,10 @@ public class ProjectsController : ControllerBase
                 project.OriginalFileKey, project.PreviewFileKey, project.PublicLinkToken, project.CreatedAt);
 
             // Send email notification to client
-            var baseUrl = _configuration["App:BaseUrl"] ?? "https://proofguard.onrender.com";
+            // App:BaseUrl is the FRONTEND url — the preview page is served by
+            // the Next.js app (https://proofguard-bay.vercel.app/preview/{token}),
+            // NOT by this API. The backend has no /preview route.
+            var baseUrl = _configuration["App:BaseUrl"] ?? "https://proofguard-bay.vercel.app";
             var previewUrl = $"{baseUrl.TrimEnd('/')}/preview/{project.PublicLinkToken}";
 
             // Fire and forget - don't block response on email delivery

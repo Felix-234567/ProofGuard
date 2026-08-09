@@ -10,13 +10,11 @@ namespace Proveguard.Api.Core.Services;
 public class LocalStorageService : IStorageService
 {
     private readonly string _uploadFolder;
-    private readonly string _baseUrl;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public LocalStorageService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
     {
         _uploadFolder = configuration["Storage:LocalFolder"] ?? Path.Combine(Directory.GetCurrentDirectory(), "uploads");
-        _baseUrl = configuration["App:BaseUrl"] ?? "";
         _httpContextAccessor = httpContextAccessor;
 
         if (!Directory.Exists(_uploadFolder))
@@ -56,12 +54,13 @@ public class LocalStorageService : IStorageService
 
     public Task<string> GetPresignedUrlAsync(string fileKey, TimeSpan expiry)
     {
-        // Construct local URL like https://proofguard.onrender.com/api/local-files/{fileKey}
+        // Build the local URL from the incoming request so it always points at
+        // this same backend instance (/api/local-files is served by the API).
+        // Deliberately NOT tied to App:BaseUrl — that key is the FRONTEND url
+        // used for client-facing links (preview page, Paystack callback).
         var request = _httpContextAccessor.HttpContext?.Request;
         var schemeHost = request != null ? $"{request.Scheme}://{request.Host}" : "https://proofguard.onrender.com";
-        
-        var baseAddress = string.IsNullOrEmpty(_baseUrl) ? schemeHost : _baseUrl;
-        var localUrl = $"{baseAddress.TrimEnd('/')}/api/local-files/{fileKey}";
+        var localUrl = $"{schemeHost.TrimEnd('/')}/api/local-files/{fileKey}";
         
         return Task.FromResult(localUrl);
     }
