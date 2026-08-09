@@ -70,7 +70,7 @@ export default function ClientPreview() {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://proofguard.onrender.com';
 
-  // Handle downloading the files
+  // Handle downloading the original file (paid only)
   const handleDownloadOriginal = async () => {
     if (!project || project.status !== 'Paid') return;
     setDownloading(true);
@@ -86,17 +86,6 @@ export default function ClientPreview() {
     } finally {
       setDownloading(false);
     }
-  };
-
-  // Low-res preview download
-  const handleDownloadPreview = () => {
-    if (!project) return;
-    const link = document.createElement('a');
-    link.href = `${API_BASE_URL}/api/public/projects/${token}/download-preview`;
-    link.download = `ProofGuard_${project.title.replace(/\s+/g, '_')}_Watermarked_Preview.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -211,14 +200,6 @@ export default function ClientPreview() {
                   <span>Pay to Unlock Original</span>
                   <ChevronRight size={16} />
                 </button>
-
-                <button 
-                  onClick={handleDownloadPreview}
-                  className={`btn btn-secondary ${styles.downloadPreviewBtn}`}
-                >
-                  <Download size={16} />
-                  <span>Download Draft (Watermarked)</span>
-                </button>
               </div>
             ) : (
               /* Paid Mode */
@@ -262,66 +243,66 @@ export default function ClientPreview() {
 
        {/* Payment Modal */}
        {isPayModalOpen && (
-         <div className={styles.modalOverlay}>
-           <div className={`glass-panel ${styles.modal} animate-fade-in`}>
-             <div className={styles.modalHeader}>
-               <div className={styles.modalHeaderTitle}>
-                 <CreditCard size={20} className={styles.modalCardIcon} />
-                 <h3>Secure Delivery Payment</h3>
-               </div>
-               <button 
-                 onClick={() => setIsPayModalOpen(false)} 
-                 className={styles.modalCloseBtn}
-                 disabled={payLoading || paySuccess}
-               >
-                 Cancel
-               </button>
-             </div>
+        <div className={styles.modalOverlay}>
+          <div className={`glass-panel ${styles.modal} animate-fade-in`}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalHeaderTitle}>
+                <CreditCard size={20} className={styles.modalCardIcon} />
+                <h3>Secure Delivery Payment</h3>
+              </div>
+              <button 
+                onClick={() => setIsPayModalOpen(false)} 
+                className={styles.modalCloseBtn}
+                disabled={payLoading || paySuccess}
+              >
+                Cancel
+              </button>
+            </div>
 
-             {payError && <div className={styles.payError}>{payError}</div>}
+            {payError && <div className={styles.payError}>{payError}</div>}
 
-             {paySuccess ? (
-               <div className={styles.paySuccessMessage}>
-                 <CheckCircle2 className={styles.paySuccessIcon} />
-                 <h4>Payment Completed!</h4>
-                 <p>Redirecting to secure download access...</p>
-               </div>
-             ) : (
-               <form onSubmit={handlePaymentSubmit} className={styles.payForm}>
-                 <div className={styles.modalInvoice}>
-                   <span>Deliverable:</span>
-                   <strong>{project.title}</strong>
-                   <span className={styles.modalPrice}>${project.price.toLocaleString()}</span>
-                 </div>
+            {paySuccess ? (
+              <div className={styles.paySuccessMessage}>
+                <CheckCircle2 className={styles.paySuccessIcon} />
+                <h4>Payment Completed!</h4>
+                <p>Redirecting to secure download access...</p>
+              </div>
+            ) : (
+              <form onSubmit={handlePaymentSubmit} className={styles.payForm}>
+                <div className={styles.modalInvoice}>
+                  <span>Deliverable:</span>
+                  <strong>{project.title}</strong>
+                  <span className={styles.modalPrice}>${project.price.toLocaleString()}</span>
+                </div>
 
-                 <div className={styles.paystackInfo}>
-                   <Shield size={16} className={styles.paystackInfoIcon} />
-                   <span>You will be redirected to Paystack to complete your payment securely.</span>
-                 </div>
+                <div className={styles.paystackInfo}>
+                  <Shield size={16} className={styles.paystackInfoIcon} />
+                  <span>You will be redirected to Paystack to complete your payment securely.</span>
+                </div>
 
-                 <button 
-                   type="submit" 
-                   className={`btn btn-primary ${styles.modalPayBtn}`}
-                   disabled={payLoading}
-                 >
-                   {payLoading ? (
-                     <>
-                       <Loader2 className={styles.spinner} size={18} />
-                       <span>Redirecting to Paystack...</span>
-                     </>
-                   ) : (
-                     <span>Pay ${project.price.toLocaleString()} with Paystack</span>
-                   )}
-                 </button>
+                <button 
+                  type="submit" 
+                  className={`btn btn-primary ${styles.modalPayBtn}`}
+                  disabled={payLoading}
+                >
+                  {payLoading ? (
+                    <>
+                      <Loader2 className={styles.spinner} size={18} />
+                      <span>Redirecting to Paystack...</span>
+                    </>
+                  ) : (
+                    <span>Pay ${project.price.toLocaleString()} with Paystack</span>
+                  )}
+                </button>
 
-                 <p className={styles.paystackNotice}>
-                   Your secure payment is processed by Paystack. We never see your card details.
-                 </p>
-               </form>
-             )}
-           </div>
-         </div>
-       )}
+                <p className={styles.paystackNotice}>
+                  Your secure payment is processed by Paystack. We never see your card details.
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

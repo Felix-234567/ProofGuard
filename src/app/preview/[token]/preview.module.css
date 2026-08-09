@@ -299,12 +299,6 @@
   background: var(--accent-green-hover);
 }
 
-.downloadPreviewBtn {
-  width: 100%;
-  height: 42px;
-  font-size: 0.85rem;
-}
-
 /* Unlocked/Paid Mode Card */
 .unlockedBox {
   text-align: center;
