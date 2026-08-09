@@ -9,32 +9,47 @@ services:
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      # sync: false below means Render keeps the REAL value you set in the
+      # dashboard (Render → proofguard-api → Environment) and never overwrites
+      # it with these placeholder values on redeploy. Set real values once in
+      # the dashboard — the app will use Cloudflare D1 + R2 automatically.
       - key: FIREBASE_PROJECT_ID
         value: myfirstcsp
+        sync: false
       - key: CLOUDFLARE_D1_ACCOUNT_ID
         value: YOUR_CLOUDFLARE_ACCOUNT_ID
+        sync: false
       - key: CLOUDFLARE_D1_DATABASE_ID
         value: YOUR_CLOUDFLARE_DATABASE_ID
+        sync: false
       - key: CLOUDFLARE_D1_API_TOKEN
         value: YOUR_CLOUDFLARE_D1_API_TOKEN
+        sync: false
       - key: CLOUDFLARE_R2_ACCOUNT_ID
         value: YOUR_CLOUDFLARE_ACCOUNT_ID
+        sync: false
       - key: CLOUDFLARE_R2_ACCESS_KEY_ID
         value: YOUR_CLOUDFLARE_R2_ACCESS_KEY_ID
+        sync: false
       - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
         value: YOUR_CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        sync: false
       - key: CLOUDFLARE_R2_BUCKET_NAME
         value: YOUR_CLOUDFLARE_R2_BUCKET_NAME
+        sync: false
       - key: PAYSTACK_SECRET_KEY
         value: YOUR_PAYSTACK_SECRET_KEY
+        sync: false
       - key: PAYSTACK_CALLBACK_URL
         value: https://proofguard-api.onrender.com/api/payments/verify
       - key: APP_BASE_URL
         value: https://proofguard-api.onrender.com
       - key: RESEND_API_KEY
         value: YOUR_RESEND_API_KEY
+        sync: false
       - key: RESEND_FROM_EMAIL
         value: YOUR_RESEND_FROM_EMAIL
+        sync: false
       - key: STORAGE_LOCAL_FOLDER
         value: /tmp/uploads
       - key: CORS_ALLOWED_ORIGINS

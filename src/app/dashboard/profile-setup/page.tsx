@@ -35,33 +35,27 @@ export default function ProfileSetup() {
 
         // Check if profile is already completed in the database
         try {
-          const token = apiService.getToken();
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://proofguard.onrender.com'}/api/designers/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          if (res.ok) {
-            const dbProfile = await res.json();
-            // If database says profile is completed, sync to localStorage and redirect
-            if (dbProfile.profile_completed) {
-              const merged = { ...user, ...dbProfile, profile_completed: true };
-              localStorage.setItem('pg_current_designer', JSON.stringify(merged));
-              router.push('/dashboard');
-              return;
-            }
-
-            // Pre-fill form with existing database values if any
-            if (dbProfile.business_name) setBusinessName(dbProfile.business_name);
-            if (dbProfile.phone) setPhone(dbProfile.phone);
-            if (dbProfile.momo_provider) setMomoProvider(dbProfile.momo_provider);
-            if (dbProfile.momo_number) setMomoNumber(dbProfile.momo_number);
-          } else {
-            // Designer doesn't exist in DB yet, use default business name
-            setBusinessName(user.name + ' Designs');
+          const dbProfile = await apiService.getProfile();
+          // If database says profile is completed, sync to localStorage and redirect
+          if (dbProfile.profile_completed) {
+            const merged = { ...user, ...dbProfile, profile_completed: true };
+            localStorage.setItem('pg_current_designer', JSON.stringify(merged));
+            router.push('/dashboard');
+            return;
           }
-        } catch (apiErr) {
+
+          // Pre-fill form with existing database values if any
+          if (dbProfile.business_name) setBusinessName(dbProfile.business_name);
+          if (dbProfile.phone) setPhone(dbProfile.phone);
+          if (dbProfile.momo_provider) setMomoProvider(dbProfile.momo_provider);
+          if (dbProfile.momo_number) setMomoNumber(dbProfile.momo_number);
+        } catch (apiErr: any) {
+          // Expired/revoked session — back to sign in
+          if (apiErr?.message?.includes('sign in again')) {
+            router.push('/');
+            return;
+          }
+          // Designer doesn't exist in DB yet (404) or API hiccup — use default
           console.warn('Could not fetch profile from API, using localStorage only', apiErr);
           setBusinessName(user.name + ' Designs');
         }
@@ -114,6 +108,11 @@ export default function ProfileSetup() {
       window.location.href = '/dashboard';
     } catch (err: any) {
       console.error('Profile save failed:', err);
+      // Expired/revoked session — back to sign in
+      if (err?.message?.includes('sign in again')) {
+        router.push('/');
+        return;
+      }
       setError(err.message || 'Failed to save profile. Please try again.');
       setSubmitting(false);
     }

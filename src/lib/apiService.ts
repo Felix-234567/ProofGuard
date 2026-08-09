@@ -28,6 +28,59 @@ export const apiService = {
     return token;
   },
 
+  /**
+   * Try to refresh the Firebase ID token. Firebase ID tokens expire after
+   * ~1 hour — if Firebase still has a live session, this returns a brand-new
+   * token; otherwise (session revoked/signed out) it returns null.
+   */
+  async refreshToken(): Promise<string | null> {
+    try {
+      const { getCurrentFirebaseUser, refreshIdToken } = await import('./firebase');
+      const user = getCurrentFirebaseUser();
+      if (!user) return null;
+      const freshToken = await refreshIdToken(user);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('pg_token', freshToken);
+      }
+      return freshToken;
+    } catch {
+      // Firebase not configured, no current user, or refresh failed
+      return null;
+    }
+  },
+
+  /**
+   * Authenticated fetch that transparently refreshes an expired Firebase ID
+   * token. On a 401 it refreshes once and retries; if refresh fails the
+   * session is cleared and a clear "sign in again" error is thrown.
+   */
+  async authedFetch(path: string, init?: RequestInit, retried = false): Promise<Response> {
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('No auth token found. Please sign in again.');
+    }
+
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (res.status === 401 && !retried) {
+      const refreshed = await this.refreshToken();
+      if (refreshed) {
+        return this.authedFetch(path, init, true);
+      }
+      // Refresh failed — the session is truly gone; clean up and ask to sign in.
+      await this.logout();
+      throw new Error('Session expired. Please sign in again.');
+    }
+
+    return res;
+  },
+
   // --- Auth & Profile ---
   /**
    * Store a Firebase session after successful authentication.
@@ -162,19 +215,25 @@ export const apiService = {
     return JSON.parse(designer);
   },
 
+  /** GET /api/designers/profile — the authenticated designer's full profile. */
+  async getProfile(): Promise<Designer> {
+    const res = await this.authedFetch('/api/designers/profile');
+    if (!res.ok) {
+      const errMsg = await res.text();
+      throw new Error(errMsg || 'Failed to load profile');
+    }
+    return res.json();
+  },
+
   async updateProfile(profileData: {
     phone: string;
     momo_provider: string;
     momo_number: string;
     business_name: string;
   }): Promise<Designer> {
-    const token = this.getToken();
-    if (!token) throw new Error('No auth token found. Please sign in again.');
-
-    const res = await fetch(`${API_BASE_URL}/api/designers/profile`, {
+    const res = await this.authedFetch('/api/designers/profile', {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -210,12 +269,7 @@ export const apiService = {
 
   // --- Designer Endpoints ---
   async getProjects(): Promise<Project[]> {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/api/projects`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const res = await this.authedFetch('/api/projects');
 
     if (!res.ok) {
       throw new Error(await res.text() || 'Failed to fetch projects');
@@ -226,12 +280,7 @@ export const apiService = {
   },
 
   async getProject(id: string): Promise<Project> {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const res = await this.authedFetch(`/api/projects/${id}`);
 
     if (!res.ok) {
       throw new Error('Project not found');
@@ -251,18 +300,14 @@ export const apiService = {
     if (!token) {
       throw new Error('No auth token found. Please sign in again.');
     }
-    console.log('[API] createProject - token starts with:', token.substring(0, Math.min(20, token.length)));
     const formData = new FormData();
     formData.append('title', projectData.title);
     formData.append('clientEmail', projectData.client_email);
     formData.append('price', projectData.price.toString());
     formData.append('file', projectData.file);
 
-    const res = await fetch(`${API_BASE_URL}/api/projects`, {
+    const res = await this.authedFetch('/api/projects', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
       body: formData
     });
 
@@ -276,16 +321,8 @@ export const apiService = {
   },
 
   async deleteProject(id: string): Promise<void> {
-    const token = this.getToken();
-    if (!token) {
-      throw new Error('No auth token found. Please sign in again.');
-    }
-
-    const res = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const res = await this.authedFetch(`/api/projects/${id}`, {
+      method: 'DELETE'
     });
 
     if (!res.ok) {
@@ -295,12 +332,7 @@ export const apiService = {
   },
 
   async getAnalytics() {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/api/projects/analytics`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const res = await this.authedFetch('/api/projects/analytics');
 
     if (!res.ok) {
       throw new Error('Failed to load analytics');

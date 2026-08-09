@@ -97,6 +97,15 @@ export async function getFirebaseToken(user: User): Promise<string> {
   return await getIdToken(user);
 }
 
+/**
+ * Force-refresh the Firebase ID token.
+ * Firebase ID tokens expire after ~1 hour; call this when an API request
+ * returns 401 to keep the session alive without forcing a re-login.
+ */
+export async function refreshIdToken(user: User): Promise<string> {
+  return await getIdToken(user, true);
+}
+
 /** Subscribe to auth state changes */
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   const auth = getFirebaseAuth();

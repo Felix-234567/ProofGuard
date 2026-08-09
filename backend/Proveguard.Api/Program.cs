@@ -16,7 +16,7 @@ if (!string.IsNullOrEmpty(port))
 }
 
 // ──────────────────────────────────────────────
-// 0. Load shared .env (or .env.local) from project root
+// 0. Load shared .env (or .env.local) from project root (dev convenience)
 // ──────────────────────────────────────────────
 var projectRoot = Path.Combine(Directory.GetCurrentDirectory(), "..", "..");
 var envPath = Path.Combine(projectRoot, ".env");
@@ -29,34 +29,42 @@ if (File.Exists(envPath))
 {
     Console.WriteLine($"[ProofGuard] Loading env from {envPath}");
     DotNetEnv.Env.Load(envPath);
+}
 
-    // Map flat env var names to .NET configuration hierarchical keys
-    var envToConfigMap = new Dictionary<string, string>
-    {
-        ["FIREBASE_PROJECT_ID"] = "Firebase:ProjectId",
-        ["CLOUDFLARE_D1_ACCOUNT_ID"] = "Cloudflare:D1:AccountId",
-        ["CLOUDFLARE_D1_DATABASE_ID"] = "Cloudflare:D1:DatabaseId",
-        ["CLOUDFLARE_D1_API_TOKEN"] = "Cloudflare:D1:ApiToken",
-        ["CLOUDFLARE_R2_ACCOUNT_ID"] = "Cloudflare:R2:AccountId",
-        ["CLOUDFLARE_R2_ACCESS_KEY_ID"] = "Cloudflare:R2:AccessKeyId",
-        ["CLOUDFLARE_R2_SECRET_ACCESS_KEY"] = "Cloudflare:R2:SecretAccessKey",
-        ["CLOUDFLARE_R2_BUCKET_NAME"] = "Cloudflare:R2:BucketName",
-        ["PAYSTACK_SECRET_KEY"] = "Paystack:SecretKey",
-        ["PAYSTACK_CALLBACK_URL"] = "Paystack:CallbackUrl",
-        ["APP_BASE_URL"] = "App:BaseUrl",
-        ["DB_CONNECTION_STRING"] = "ConnectionStrings:DefaultConnection",
-        ["STORAGE_LOCAL_FOLDER"] = "Storage:LocalFolder",
-        ["RESEND_API_KEY"] = "Resend:ApiKey",
-        ["RESEND_FROM_EMAIL"] = "Resend:FromEmail"
-    };
+// Map flat env var names (single underscores, e.g. CLOUDFLARE_D1_ACCOUNT_ID)
+// to .NET hierarchical configuration keys (e.g. Cloudflare:D1:AccountId).
+//
+// .NET's default environment-variable provider only converts "__" (double
+// underscore) to ":" — single-underscore vars are NOT auto-mapped. This loop
+// MUST run unconditionally: in Docker/Render production there is no .env file
+// (env vars come straight from the host), so without this, the Cloudflare
+// D1/R2 credentials would never reach the config and the app would silently
+// fall back to ephemeral local storage.
+var envToConfigMap = new Dictionary<string, string>
+{
+    ["FIREBASE_PROJECT_ID"] = "Firebase:ProjectId",
+    ["CLOUDFLARE_D1_ACCOUNT_ID"] = "Cloudflare:D1:AccountId",
+    ["CLOUDFLARE_D1_DATABASE_ID"] = "Cloudflare:D1:DatabaseId",
+    ["CLOUDFLARE_D1_API_TOKEN"] = "Cloudflare:D1:ApiToken",
+    ["CLOUDFLARE_R2_ACCOUNT_ID"] = "Cloudflare:R2:AccountId",
+    ["CLOUDFLARE_R2_ACCESS_KEY_ID"] = "Cloudflare:R2:AccessKeyId",
+    ["CLOUDFLARE_R2_SECRET_ACCESS_KEY"] = "Cloudflare:R2:SecretAccessKey",
+    ["CLOUDFLARE_R2_BUCKET_NAME"] = "Cloudflare:R2:BucketName",
+    ["PAYSTACK_SECRET_KEY"] = "Paystack:SecretKey",
+    ["PAYSTACK_CALLBACK_URL"] = "Paystack:CallbackUrl",
+    ["APP_BASE_URL"] = "App:BaseUrl",
+    ["DB_CONNECTION_STRING"] = "ConnectionStrings:DefaultConnection",
+    ["STORAGE_LOCAL_FOLDER"] = "Storage:LocalFolder",
+    ["RESEND_API_KEY"] = "Resend:ApiKey",
+    ["RESEND_FROM_EMAIL"] = "Resend:FromEmail"
+};
 
-    foreach (var (envKey, configKey) in envToConfigMap)
+foreach (var (envKey, configKey) in envToConfigMap)
+{
+    var value = Environment.GetEnvironmentVariable(envKey);
+    if (!string.IsNullOrEmpty(value))
     {
-        var value = Environment.GetEnvironmentVariable(envKey);
-        if (!string.IsNullOrEmpty(value))
-        {
-            builder.Configuration[configKey] = value;
-        }
+        builder.Configuration[configKey] = value;
     }
 }
 
@@ -98,6 +106,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidAudience = firebaseProjectId,
             ValidateLifetime = true
+        };
+        // Log the REAL reason a token is rejected (expired, wrong issuer,
+        // wrong audience, bad signature, etc.) so Render logs show exactly
+        // what is failing instead of a bare 401.
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogWarning("JWT authentication failed: {Message}", context.Exception.Message);
+                return Task.CompletedTask;
+            }
         };
     });
 

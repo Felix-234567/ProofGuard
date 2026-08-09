@@ -66,8 +66,13 @@ export default function Dashboard() {
       
       const analytics = await apiService.getAnalytics();
       setStats(analytics);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load dashboard data', err);
+      // Expired/revoked session — send the user back to sign in
+      if (err?.message?.includes('sign in again')) {
+        window.location.href = '/';
+        return;
+      }
     } finally {
       setLoading(false);
     }
