@@ -10,12 +10,14 @@ public class HealthController : ControllerBase
 {
     private readonly IDbService _dbService;
     private readonly IStorageService _storageService;
+    private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
 
-    public HealthController(IDbService dbService, IStorageService storageService, IConfiguration configuration)
+    public HealthController(IDbService dbService, IStorageService storageService, IEmailService emailService, IConfiguration configuration)
     {
         _dbService = dbService;
         _storageService = storageService;
+        _emailService = emailService;
         _configuration = configuration;
     }
 
@@ -33,6 +35,7 @@ public class HealthController : ControllerBase
             {
                 database = _dbService.GetType().Name,
                 storage = _storageService.GetType().Name,
+                email = _emailService.GetType().Name,
                 firebaseProjectId = _configuration["Firebase:ProjectId"]
             }
         });

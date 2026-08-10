@@ -19,7 +19,14 @@ public class ResendEmailService : IEmailService
         _resend = resend;
         _configuration = configuration;
         _logger = logger;
-        _fromEmail = _configuration["Resend:FromEmail"] ?? "onboarding@resend.dev";
+
+        // Guard against placeholder/unset values (e.g. "YOUR_RESEND_FROM_EMAIL"
+        // left in Render's dashboard): fall back to the Resend test sender.
+        var fromEmail = _configuration["Resend:FromEmail"];
+        _fromEmail = string.IsNullOrWhiteSpace(fromEmail)
+            || fromEmail.Trim().StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase)
+            ? "onboarding@resend.dev"
+            : fromEmail.Trim();
     }
 
     public async Task SendProjectNotificationAsync(string clientEmail, string projectTitle, string previewUrl, decimal price)
@@ -36,10 +43,21 @@ public class ResendEmailService : IEmailService
 
             var response = await _resend.EmailSendAsync(message);
 
-            if (response != null)
+            // The Resend SDK always returns a non-null response object — even
+            // on failure. Checking only for null hid every real error (unverified
+            // domain, invalid from address, rate limit, bad key...) and logged
+            // failed sends as "successful". Must check response.Success and log
+            // response.Exception instead.
+            if (response?.Success == true)
             {
                 _logger.LogInformation("Email sent successfully to {Email} for project {Title}",
                     clientEmail, projectTitle);
+            }
+            else
+            {
+                var error = response?.Exception?.Message ?? "Unknown Resend error (no response details)";
+                _logger.LogError("Failed to send email to {Email} for project {Title}. Resend error: {Error}",
+                    clientEmail, projectTitle, error);
             }
         }
         catch (Exception ex)

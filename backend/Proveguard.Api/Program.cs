@@ -137,12 +137,19 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IWatermarkService, WatermarkService>();
 
 // Register Resend email service
-var resendApiKey = builder.Configuration["Resend:ApiKey"];
-if (!string.IsNullOrEmpty(resendApiKey) && resendApiKey != "your_resend_api_key_here")
+// Only register Resend when a REAL key is present. The old check compared
+// against the lowercase "your_resend_api_key_here" placeholder, but
+// render.yaml uses the UPPERCASE "YOUR_RESEND_API_KEY" placeholder — a
+// dashboard value that was never replaced would register a Resend client
+// with a bogus key and every send would silently fail with 401. Use the
+// same placeholder-aware check (YOUR_ prefix, case-insensitive) as the
+// Cloudflare/Paystack services below.
+var resendConfigured = IsConfigReady(builder.Configuration, "Resend:ApiKey");
+if (resendConfigured)
 {
     var resendOptions = new Resend.ResendClientOptions
     {
-        ApiToken = resendApiKey
+        ApiToken = builder.Configuration["Resend:ApiKey"]!
     };
     var httpClient = new HttpClient();
     builder.Services.AddSingleton<Resend.IResend>(Resend.ResendClient.Create(resendOptions, httpClient));
@@ -151,9 +158,11 @@ if (!string.IsNullOrEmpty(resendApiKey) && resendApiKey != "your_resend_api_key_
 }
 else
 {
-    // Register a no-op email service for development
+    // Register a no-op email service when no real Resend key is present.
+    // This also catches placeholder values like "YOUR_RESEND_API_KEY" or
+    // "your_resend_api_key_here" so a broken client is never registered.
     builder.Services.AddSingleton<IEmailService>(sp => new NoOpEmailService());
-    Console.WriteLine("[ProofGuard] Email service disabled (RESEND_API_KEY not set)");
+    Console.WriteLine("[ProofGuard] Email service disabled (RESEND_API_KEY not set or still a placeholder)");
 }
 
 // ─── Feature-driven service selection ────────────────────
