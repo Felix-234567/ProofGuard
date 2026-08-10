@@ -1,20 +1,145 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Shield, LogOut, ArrowLeft, BarChart3, 
-  DollarSign, Eye, CheckCircle2, TrendingUp, HelpCircle
+import {
+  Shield, LogOut, ArrowLeft, BarChart3,
+  TrendingUp, TrendingDown, HelpCircle
 } from 'lucide-react';
 import { apiService } from '@/lib/apiService';
-import { Designer } from '@/lib/db';
+import { Designer, Project } from '@/lib/db';
 import ThemeToggle from '@/components/ThemeToggle';
 import styles from './analytics.module.css';
+
+// Plot area inside the 500x200 chart viewBox: x 40->478, y 170 (zero) -> 30 (max).
+const PLOT = { x0: 40, x1: 478, yTop: 30, yBottom: 170 };
+const TICKS = [1, 0.75, 0.5, 0.25, 0];
+
+type ActivityEvent = { id: string; at: number; kind: 'created' | 'viewed' | 'paid'; title: string };
+
+/**
+ * Timestamps are written server-side as DateTime.UtcNow but SQLite/D1 round-trips
+ * them without a timezone designator. Treat a bare timestamp as UTC so day and
+ * month bucketing does not drift by the viewer's offset.
+ */
+function parseTs(value?: string | null): number | null {
+  if (!value) return null;
+  const hasZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(value);
+  const ms = Date.parse(hasZone ? value : `${value}Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+/** Axis ceiling for a whole-number count. Always a multiple of 4 so the four
+ *  quarter gridlines land on integers instead of repeating a rounded label. */
+function niceMaxCount(peak: number): number {
+  return Math.ceil(Math.max(4, peak) / 4) * 4;
+}
+
+/** Axis ceiling for a money series, floored at ₵100 so an empty chart still
+ *  draws a sane scale rather than five ₵1 ticks. */
+function niceMaxMoney(peak: number): number {
+  if (peak <= 0) return 100;
+  const pow = 10 ** Math.floor(Math.log10(peak));
+  const scaled = peak / pow;
+  const step = [1, 2, 2.5, 4, 5, 10].find(s => s >= scaled) ?? 10;
+  return Math.max(100, step * pow);
+}
+
+function scaleY(value: number, max: number): number {
+  const ratio = max > 0 ? value / max : 0;
+  return PLOT.yBottom - ratio * (PLOT.yBottom - PLOT.yTop);
+}
+
+function scaleX(index: number, count: number): number {
+  if (count <= 1) return PLOT.x0;
+  return PLOT.x0 + (index * (PLOT.x1 - PLOT.x0)) / (count - 1);
+}
+
+function formatCedis(value: number): string {
+  if (value >= 1000) {
+    const k = value / 1000;
+    return `₵${Number.isInteger(k) ? k : k.toFixed(1)}k`;
+  }
+  return `₵${Math.round(value)}`;
+}
+
+function relativeTime(ms: number): string {
+  const mins = Math.round((Date.now() - ms) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return `${Math.round(days / 30)} mo ago`;
+}
+
+function midnightOffset(daysAgo: number): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
+  return d.getTime();
+}
+
+/** Proofs first opened by a client, bucketed into each of the last 7 days. */
+function dailyViews(projects: Project[]) {
+  return Array.from({ length: 7 }, (_, slot) => {
+    const daysAgo = 6 - slot;
+    const from = midnightOffset(daysAgo);
+    const to = midnightOffset(daysAgo - 1);
+    const value = projects.filter(p => {
+      const t = parseTs(p.viewed_at);
+      return t !== null && t >= from && t < to;
+    }).length;
+    return {
+      label: new Date(from).toLocaleDateString(undefined, { weekday: 'short' }),
+      value
+    };
+  });
+}
+
+function viewsBetween(projects: Project[], fromDaysAgo: number, toDaysAgo: number): number {
+  const from = midnightOffset(fromDaysAgo);
+  const to = midnightOffset(toDaysAgo);
+  return projects.filter(p => {
+    const t = parseTs(p.viewed_at);
+    return t !== null && t >= from && t < to;
+  }).length;
+}
+
+/** Payments summed by the calendar month they landed in, for the last 6 months. */
+function monthlyRevenue(projects: Project[]) {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, slot) => {
+    const from = new Date(now.getFullYear(), now.getMonth() - (5 - slot), 1);
+    const to = new Date(from.getFullYear(), from.getMonth() + 1, 1);
+    const value = projects.reduce((sum, p) => {
+      const t = parseTs(p.paid_at);
+      return t !== null && t >= from.getTime() && t < to.getTime() ? sum + p.price : sum;
+    }, 0);
+    return { label: from.toLocaleDateString(undefined, { month: 'short' }), value };
+  });
+}
+
+function activityFeed(projects: Project[]): ActivityEvent[] {
+  const events: ActivityEvent[] = [];
+  for (const p of projects) {
+    const created = parseTs(p.created_at);
+    if (created !== null) events.push({ id: p.id, at: created, kind: 'created', title: p.title });
+    const viewed = parseTs(p.viewed_at);
+    if (viewed !== null) events.push({ id: p.id, at: viewed, kind: 'viewed', title: p.title });
+    const paid = parseTs(p.paid_at);
+    if (paid !== null) events.push({ id: p.id, at: paid, kind: 'paid', title: p.title });
+  }
+  return events.sort((a, b) => b.at - a.at).slice(0, 6);
+}
 
 export default function AnalyticsPage() {
   const router = useRouter();
   const [designer, setDesigner] = useState<Designer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats] = useState({
     totalProjects: 0,
     totalViewed: 0,
@@ -39,16 +164,44 @@ export default function AnalyticsPage() {
         }
         setDesigner(user);
 
-        const analytics = await apiService.getAnalytics();
+        // Totals come from the aggregate endpoint; the project rows carry the
+        // created_at / viewed_at / paid_at timestamps the charts are built from.
+        const [analytics, projectList] = await Promise.all([
+          apiService.getAnalytics(),
+          apiService.getProjects()
+        ]);
         setStats(analytics);
+        setProjects(projectList);
       } catch (err) {
         console.error('Failed to load analytics', err);
+        setLoadError(err instanceof Error ? err.message : 'Failed to load analytics.');
       } finally {
         setLoading(false);
       }
     }
     loadData();
   }, [router]);
+
+  const views = useMemo(() => dailyViews(projects), [projects]);
+  const revenue = useMemo(() => monthlyRevenue(projects), [projects]);
+  const activity = useMemo(() => activityFeed(projects), [projects]);
+
+  const viewsMax = useMemo(() => niceMaxCount(Math.max(...views.map(d => d.value))), [views]);
+  const revenueMax = useMemo(() => niceMaxMoney(Math.max(...revenue.map(d => d.value))), [revenue]);
+
+  const viewsTrend = useMemo(() => {
+    const thisWeek = viewsBetween(projects, 6, -1);
+    const priorWeek = viewsBetween(projects, 13, 6);
+    if (priorWeek === 0) return thisWeek > 0 ? 100 : 0;
+    return Math.round(((thisWeek - priorWeek) / priorWeek) * 100);
+  }, [projects]);
+
+  const outstandingRevenue = useMemo(
+    () => projects.filter(p => p.status !== 'Paid').reduce((sum, p) => sum + p.price, 0),
+    [projects]
+  );
+  const outstandingCount = projects.filter(p => p.status !== 'Paid').length;
+  const revenueWindowTotal = revenue.reduce((sum, m) => sum + m.value, 0);
 
   const handleLogout = async () => {
     await apiService.logout();
@@ -64,9 +217,13 @@ export default function AnalyticsPage() {
     );
   }
 
-  // Sample data for charts
-  const weeklyViewsData = [12, 19, 32, 25, 45, 38, 52];
-  const monthlyEarningsData = [1200, 2400, 1800, 3100, 4800, stats.totalEarnings || 5950];
+  const linePath = views
+    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i, views.length)},${scaleY(d.value, viewsMax)}`)
+    .join(' ');
+  const areaPath = `M ${PLOT.x0},${PLOT.yBottom} ${views
+    .map((d, i) => `L ${scaleX(i, views.length)},${scaleY(d.value, viewsMax)}`)
+    .join(' ')} L ${PLOT.x1},${PLOT.yBottom} Z`;
+  const bandWidth = (PLOT.x1 - PLOT.x0) / revenue.length;
 
   return (
     <div className={styles.container}>
@@ -115,6 +272,12 @@ export default function AnalyticsPage() {
           <h1 className={styles.title}>Performance Analytics</h1>
         </div>
 
+        {loadError && (
+          <div className={`glass-panel ${styles.errorBanner}`} role="alert">
+            {loadError}
+          </div>
+        )}
+
         {/* Highlight Stats */}
         <section className={styles.summarySection}>
           <div className={`glass-panel ${styles.summaryCard}`}>
@@ -127,14 +290,18 @@ export default function AnalyticsPage() {
 
           <div className={`glass-panel ${styles.summaryCard}`}>
             <div className={styles.summaryLabel}>Outstanding Revenue</div>
-            <div className={styles.summaryValue}>₵4,150</div>
-            <div className={styles.summaryChange}>Locked in active previews</div>
+            <div className={styles.summaryValue}>₵{Math.round(outstandingRevenue).toLocaleString()}</div>
+            <div className={styles.summaryChange}>
+              Locked in {outstandingCount} unpaid preview{outstandingCount === 1 ? '' : 's'}
+            </div>
           </div>
 
           <div className={`glass-panel ${styles.summaryCard}`}>
-            <div className={styles.summaryLabel}>Security Score</div>
-            <div className={styles.summaryValue}>98%</div>
-            <div className={styles.summaryChange}>Watermark bypass protection</div>
+            <div className={styles.summaryLabel}>Conversion Rate</div>
+            <div className={styles.summaryValue}>{stats.conversionRate}%</div>
+            <div className={styles.summaryChange}>
+              {stats.totalPaid} paid of {stats.totalProjects} proof{stats.totalProjects === 1 ? '' : 's'} created
+            </div>
           </div>
         </section>
 
@@ -144,12 +311,12 @@ export default function AnalyticsPage() {
           <div className={`glass-panel ${styles.chartCard}`}>
             <div className={styles.chartHeader}>
               <div>
-                <h3>Proof Views (Last 7 Days)</h3>
-                <p>Tracking visitor frequency on preview links</p>
+                <h3>Proofs Viewed (Last 7 Days)</h3>
+                <p>First time each client opened a preview link</p>
               </div>
-              <span className={styles.chartTag}>
-                <TrendingUp size={14} />
-                +24%
+              <span className={viewsTrend < 0 ? styles.chartTagDown : styles.chartTag}>
+                {viewsTrend < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+                {viewsTrend > 0 ? '+' : ''}{viewsTrend}%
               </span>
             </div>
             <div className={styles.chartBody}>
@@ -161,50 +328,66 @@ export default function AnalyticsPage() {
                     <stop offset="100%" stopColor="var(--accent-green)" stopOpacity="0.0"/>
                   </linearGradient>
                 </defs>
-                {/* Horizontal Grid lines */}
-                <line x1="40" y1="30" x2="480" y2="30" stroke="rgba(255,255,255,0.03)" />
-                <line x1="40" y1="80" x2="480" y2="80" stroke="rgba(255,255,255,0.03)" />
-                <line x1="40" y1="130" x2="480" y2="130" stroke="rgba(255,255,255,0.03)" />
-                <line x1="40" y1="170" x2="480" y2="170" stroke="rgba(255,255,255,0.06)" />
+                {TICKS.map(t => (
+                  <line
+                    key={t}
+                    x1={PLOT.x0}
+                    y1={scaleY(t * viewsMax, viewsMax)}
+                    x2={480}
+                    y2={scaleY(t * viewsMax, viewsMax)}
+                    stroke="var(--panel-border)"
+                    strokeOpacity={t === 0 ? 0.9 : 0.4}
+                  />
+                ))}
 
-                {/* Y Axis Labels */}
-                <text x="15" y="34" className={styles.chartText}>60</text>
-                <text x="15" y="84" className={styles.chartText}>40</text>
-                <text x="15" y="134" className={styles.chartText}>20</text>
-                <text x="15" y="174" className={styles.chartText}>0</text>
+                {TICKS.map(t => (
+                  <text
+                    key={t}
+                    x="32"
+                    y={scaleY(t * viewsMax, viewsMax) + 4}
+                    textAnchor="end"
+                    className={styles.chartText}
+                  >
+                    {Math.round(t * viewsMax)}
+                  </text>
+                ))}
 
-                {/* SVG Area Fill */}
-                <path 
-                  d="M 40,170 L 40,140 L 113,123 L 186,90 L 259,107 L 332,60 L 405,77 L 478,45 L 478,170 Z" 
-                  fill="url(#lineGrad)" 
-                />
+                <path d={areaPath} fill="url(#lineGrad)" />
 
-                {/* SVG Line */}
-                <path 
-                  d="M 40,140 L 113,123 L 186,90 L 259,107 L 332,60 L 405,77 L 478,45" 
-                  fill="none" 
-                  stroke="var(--accent-green)" 
+                <path
+                  d={linePath}
+                  fill="none"
+                  stroke="var(--accent-green)"
                   strokeWidth="2.5"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
 
-                {/* Chart Dots */}
-                <circle cx="40" cy="140" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
-                <circle cx="113" cy="123" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
-                <circle cx="186" cy="90" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
-                <circle cx="259" cy="107" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
-                <circle cx="332" cy="60" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
-                <circle cx="405" cy="77" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
-                <circle cx="478" cy="45" r="3.5" fill="var(--accent-green)" stroke="black" strokeWidth="1.5" />
+                {views.map((d, i) => (
+                  <circle
+                    key={d.label}
+                    cx={scaleX(i, views.length)}
+                    cy={scaleY(d.value, viewsMax)}
+                    r="3.5"
+                    fill="var(--accent-green)"
+                    stroke="var(--panel-bg)"
+                    strokeWidth="1.5"
+                  >
+                    <title>{`${d.label}: ${d.value} viewed`}</title>
+                  </circle>
+                ))}
 
-                {/* X Axis Labels */}
-                <text x="40" y="190" textAnchor="middle" className={styles.chartText}>Mon</text>
-                <text x="113" y="190" textAnchor="middle" className={styles.chartText}>Tue</text>
-                <text x="186" y="190" textAnchor="middle" className={styles.chartText}>Wed</text>
-                <text x="259" y="190" textAnchor="middle" className={styles.chartText}>Thu</text>
-                <text x="332" y="190" textAnchor="middle" className={styles.chartText}>Fri</text>
-                <text x="405" y="190" textAnchor="middle" className={styles.chartText}>Sat</text>
-                <text x="478" y="190" textAnchor="middle" className={styles.chartText}>Sun</text>
+                {views.map((d, i) => (
+                  <text
+                    key={d.label}
+                    x={scaleX(i, views.length)}
+                    y="190"
+                    textAnchor="middle"
+                    className={styles.chartText}
+                  >
+                    {d.label}
+                  </text>
+                ))}
               </svg>
             </div>
           </div>
@@ -216,54 +399,77 @@ export default function AnalyticsPage() {
                 <h3>Revenue Insights (Last 6 Months)</h3>
                 <p>Monthly distribution of unlocked client files</p>
               </div>
-              <span className={styles.chartPrice}>Total: ₵{stats.totalEarnings + 13350}</span>
+              <span className={styles.chartPrice}>
+                Total: ₵{Math.round(revenueWindowTotal).toLocaleString()}
+              </span>
             </div>
             <div className={styles.chartBody}>
               {/* Custom SVG Bar Chart */}
               <svg className={styles.svgChart} viewBox="0 0 500 200">
-                <line x1="40" y1="30" x2="480" y2="30" stroke="rgba(255,255,255,0.03)" />
-                <line x1="40" y1="80" x2="480" y2="80" stroke="rgba(255,255,255,0.03)" />
-                <line x1="40" y1="130" x2="480" y2="130" stroke="rgba(255,255,255,0.03)" />
-                <line x1="40" y1="170" x2="480" y2="170" stroke="rgba(255,255,255,0.06)" />
-
-                {/* Y Axis Labels */}
-                <text x="15" y="34" className={styles.chartText}>₵6k</text>
-                <text x="15" y="84" className={styles.chartText}>₵4k</text>
-                <text x="15" y="134" className={styles.chartText}>₵2k</text>
-                <text x="15" y="174" className={styles.chartText}>0</text>
-
-                {/* Bars */}
-                <rect x="58" y="136" width="30" height="34" rx="3" fill="rgba(255,255,255,0.02)" stroke="var(--panel-border)" />
-                <rect x="128" y="102" width="30" height="68" rx="3" fill="rgba(255,255,255,0.02)" stroke="var(--panel-border)" />
-                <rect x="198" y="119" width="30" height="51" rx="3" fill="rgba(255,255,255,0.02)" stroke="var(--panel-border)" />
-                <rect x="268" y="82" width="30" height="88" rx="3" fill="rgba(255,255,255,0.02)" stroke="var(--panel-border)" />
-                <rect x="338" y="48" width="30" height="122" rx="3" fill="rgba(255,255,255,0.02)" stroke="var(--panel-border)" />
-                
-                {/* Active Month (Current) with linear gradient color */}
                 <defs>
                   <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--accent-green)"/>
                     <stop offset="100%" stopColor="#10b981"/>
                   </linearGradient>
                 </defs>
-                {/* Height scales dynamically based on stats */}
-                {(() => {
-                  const maxVal = 6000;
-                  const rawVal = monthlyEarningsData[5];
-                  const barHeight = Math.min(140, Math.max(15, (rawVal / maxVal) * 140));
-                  const barY = 170 - barHeight;
-                  return (
-                    <rect x="408" y={barY} width="30" height={barHeight} rx="3" fill="url(#barGrad)" filter="drop-shadow(0 4px 8px rgba(0, 255, 102, 0.2))" />
-                  );
-                })()}
 
-                {/* X Axis Labels */}
-                <text x="73" y="190" textAnchor="middle" className={styles.chartText}>Feb</text>
-                <text x="143" y="190" textAnchor="middle" className={styles.chartText}>Mar</text>
-                <text x="213" y="190" textAnchor="middle" className={styles.chartText}>Apr</text>
-                <text x="283" y="190" textAnchor="middle" className={styles.chartText}>May</text>
-                <text x="353" y="190" textAnchor="middle" className={styles.chartText}>Jun</text>
-                <text x="423" y="190" textAnchor="middle" className={styles.chartText}>Jul</text>
+                {TICKS.map(t => (
+                  <line
+                    key={t}
+                    x1={PLOT.x0}
+                    y1={scaleY(t * revenueMax, revenueMax)}
+                    x2={480}
+                    y2={scaleY(t * revenueMax, revenueMax)}
+                    stroke="var(--panel-border)"
+                    strokeOpacity={t === 0 ? 0.9 : 0.4}
+                  />
+                ))}
+
+                {TICKS.map(t => (
+                  <text
+                    key={t}
+                    x="32"
+                    y={scaleY(t * revenueMax, revenueMax) + 4}
+                    textAnchor="end"
+                    className={styles.chartText}
+                  >
+                    {t === 0 ? '0' : formatCedis(t * revenueMax)}
+                  </text>
+                ))}
+
+                {/* Bars — the current month is highlighted; a zero month renders
+                    as a flat baseline tick so the axis stays readable. */}
+                {revenue.map((m, i) => {
+                  const isCurrent = i === revenue.length - 1;
+                  const centre = PLOT.x0 + bandWidth * (i + 0.5);
+                  const barHeight = Math.max(m.value > 0 ? 2 : 0, PLOT.yBottom - scaleY(m.value, revenueMax));
+                  return (
+                    <rect
+                      key={m.label}
+                      x={centre - 15}
+                      y={PLOT.yBottom - barHeight}
+                      width="30"
+                      height={barHeight}
+                      rx="3"
+                      fill={isCurrent ? 'url(#barGrad)' : 'var(--panel-bg-hover)'}
+                      stroke={isCurrent ? 'none' : 'var(--panel-border)'}
+                    >
+                      <title>{`${m.label}: ₵${Math.round(m.value).toLocaleString()}`}</title>
+                    </rect>
+                  );
+                })}
+
+                {revenue.map((m, i) => (
+                  <text
+                    key={m.label}
+                    x={PLOT.x0 + bandWidth * (i + 0.5)}
+                    y="190"
+                    textAnchor="middle"
+                    className={styles.chartText}
+                  >
+                    {m.label}
+                  </text>
+                ))}
               </svg>
             </div>
           </div>
@@ -298,28 +504,28 @@ export default function AnalyticsPage() {
           <div className={`glass-panel ${styles.securityCard}`}>
             <div className={styles.securityHeader}>
               <h3>Protection Activity</h3>
-              <span title="Audit log of security guard triggers">
+              <span title="Live log of proof creation, client views and payment unlocks">
                 <HelpCircle size={15} className={styles.helpIcon} />
               </span>
             </div>
             
             <div className={styles.logList}>
-              <div className={styles.logItem}>
-                <span className={styles.logTime}>Just Now</span>
-                <span className={styles.logText}>Screenshot restriction triggered (Client Preview page)</span>
-              </div>
-              <div className={styles.logItem}>
-                <span className={styles.logTime}>4 hrs ago</span>
-                <span className={styles.logText}>Right-click block triggered on <strong>Zenith Agency</strong> preview</span>
-              </div>
-              <div className={styles.logItem}>
-                <span className={styles.logTime}>1 day ago</span>
-                <span className={styles.logText}>Secured preview generated: <strong>Packaging Design - Bloom</strong></span>
-              </div>
-              <div className={styles.logItem}>
-                <span className={styles.logTime}>3 days ago</span>
-                <span className={styles.logText}>Original file unlocked: <strong>Brand Identity - Zenith Agency</strong></span>
-              </div>
+              {activity.length === 0 && (
+                <p className={styles.emptyNote}>
+                  No activity yet. Upload a proof to start tracking views and payments.
+                </p>
+              )}
+
+              {activity.map(event => (
+                <div key={`${event.id}-${event.kind}`} className={styles.logItem}>
+                  <span className={styles.logTime}>{relativeTime(event.at)}</span>
+                  <span className={styles.logText}>
+                    {event.kind === 'created' && <>Secured preview generated: <strong>{event.title}</strong></>}
+                    {event.kind === 'viewed' && <>Client opened protected preview: <strong>{event.title}</strong></>}
+                    {event.kind === 'paid' && <>Original file unlocked after payment: <strong>{event.title}</strong></>}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </section>

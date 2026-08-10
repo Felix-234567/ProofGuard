@@ -18,6 +18,10 @@
 
 /* Header Navbar */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-shrink: 0;
   height: 74px;
   padding: 0 40px;
   display: flex;
@@ -25,7 +29,7 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--panel-border);
   background-color: var(--bg-dark-accent);
-  z-index: 10;
+  border-radius: 0;
 }
 
 @media (max-width: 768px) {
@@ -288,10 +292,37 @@
   gap: 4px;
 }
 
+.chartTagDown {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red-dim);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .chartPrice {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--accent-green);
+}
+
+.emptyNote {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+
+.errorBanner {
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+  border-color: var(--accent-red);
 }
 
 .chartBody {

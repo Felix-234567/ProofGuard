@@ -18,6 +18,10 @@
 
 /* Header Navbar */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-shrink: 0;
   height: 74px;
   padding: 0 40px;
   display: flex;
@@ -25,7 +29,7 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--panel-border);
   background-color: var(--bg-dark-accent);
-  z-index: 10;
+  border-radius: 0;
 }
 
 @media (max-width: 768px) {
